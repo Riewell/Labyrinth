@@ -1,3 +1,28 @@
+/*  parameters.c
+
+  Лабиринт
+  Version 0.2
+
+  Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
+  
+  This file is part of Labyrinth.
+  
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+  MA 02110-1301, USA.
+*/
+
 #include "includes_macros.h"
 
 int parameters(char *args[], int count, int *length, int *width, int *visual, int *no_walls_removing, int *show_result)
@@ -30,7 +55,7 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				if (check && (strlen(args[parameter_count+1]) > 5))
 				{
 					printf ("Параметр '%s' содержит очень большое число (\'%s\').\nУстановлено максимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MAX_LENGTH);
-					*length=DEFAULT_MAX_LENGTH;
+					*length=DEFAULT_MAX_LENGTH+2;
 					parameter_count++;
 					continue;
 				}
@@ -39,16 +64,16 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				//Если значение меньше определённого минимально возможного - присваивание минимально возможного значения
 				if (check)
 				{
-					*length=atoi(args[parameter_count+1]);
-					if (*length > DEFAULT_MAX_LENGTH)
+					*length=atoi(args[parameter_count+1])+2;
+					if (*length > DEFAULT_MAX_LENGTH+2)
 					{
 						printf ("Параметр '%s' содержит очень большое число (\'%s\').\nУстановлено максимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MAX_LENGTH);
-						*length=DEFAULT_MAX_LENGTH;
+						*length=DEFAULT_MAX_LENGTH+2;
 					}
-					if (*length < DEFAULT_MIN_LENGTH)
+					if (*length < DEFAULT_MIN_LENGTH+2)
 					{
 						printf ("Параметр '%s' содержит очень маленькое число (\'%s\').\nУстановлено минимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MIN_LENGTH);
-						*length=DEFAULT_MIN_LENGTH;
+						*length=DEFAULT_MIN_LENGTH+2;
 					}
 				}
 				parameter_count++;
@@ -77,7 +102,7 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				if (check && (strlen(args[parameter_count+1]) > 5))
 				{
 					printf ("Параметр '%s' содержит очень большое число (\'%s\').\nУстановлено максимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MAX_WIDTH);
-					*width=DEFAULT_MAX_WIDTH;
+					*width=DEFAULT_MAX_WIDTH+2;
 					parameter_count++;
 					continue;
 				}
@@ -86,16 +111,16 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				//Если значение меньше определённого минимально возможного - присваивание минимально возможного значения
 				if (check)
 				{
-					*width=atoi(args[parameter_count+1]);
-					if (*width > DEFAULT_MAX_WIDTH)
+					*width=atoi(args[parameter_count+1])+2;
+					if (*width > DEFAULT_MAX_WIDTH+2)
 					{
 						printf ("Параметр '%s' содержит очень большое число (\'%s\').\nУстановлено максимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MAX_WIDTH);
-						*width=DEFAULT_MAX_WIDTH;
+						*width=DEFAULT_MAX_WIDTH+2;
 					}
-					if (*width < DEFAULT_MIN_WIDTH)
+					if (*width < DEFAULT_MIN_WIDTH+2)
 					{
 						printf ("Параметр '%s' содержит очень маленькое число (\'%s\').\nУстановлено минимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MIN_WIDTH);
-						*width=DEFAULT_MIN_WIDTH;
+						*width=DEFAULT_MIN_WIDTH+2;
 					}
 				}
 				parameter_count++;
