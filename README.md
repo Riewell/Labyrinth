@@ -1,0 +1,1 @@
+Simple pen-and-paper based game about looking for treasure in labyrinth (with rivals).
