@@ -1,7 +1,7 @@
 /*  includes_macros.h
 
   Лабиринт
-  Version 0.2
+  Version 0.2.2
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -31,8 +31,8 @@
 //#include 
 //#include 
 
-#define DEFAULT_LENGTH 11
-#define DEFAULT_WIDTH 11
+#define DEFAULT_LENGTH 11 //FIXME: алгоритм генерации корректно работает только с нечётными числами
+#define DEFAULT_WIDTH 11 //FIXME: алгоритм генерации корректно работает только с нечётными числами
 #define DEFAULT_MAX_LENGTH 1000
 #define DEFAULT_MAX_WIDTH 1000
 #define DEFAULT_MIN_LENGTH 5
@@ -46,3 +46,10 @@ struct players{
 	int direction; //направление, в котором смотрит участник (0 - вверх, 1 - вправо, 2 - вниз, 3 - влево)
 	//
 };
+
+//Типы клеток и событий в них:
+//0 - пустая клетка, 1 - стена, 2 - будущая пустая клетка, 3 - один из соперников, 4 - игрок, 5 - выход
+enum CellType { CELL, WALL, DUMMY, RIVAL, PLAYER, EXIT };
+//Перечисление возможных направлений (необходимость под вопросом, только для удобства чтения кода)
+//0 - вверх, 1 - вправо, 2 - вниз, 3 - влево
+enum Direction { UP, RIGHT, DOWN, LEFT };

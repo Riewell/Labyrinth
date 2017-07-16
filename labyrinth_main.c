@@ -1,7 +1,7 @@
 /*  labyrinth_main.c
 
   Лабиринт
-  Version 0.2
+  Version 0.2.2
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -29,6 +29,7 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, struct players player[]);
 void clean_up(int *labyrinth, int const size_labyrinth_width, int const size_labyrinth_length);
 int sdl_main(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width);
+int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int requested_mode);
 
 int main(int argc, char *argv[])
 {
@@ -43,7 +44,15 @@ int main(int argc, char *argv[])
 	//Значения по умолчанию - в файле includes_macros.h
 	//Значения можно менять через параметры запуска (добавить в Настройки и файл опций!)
 	int size_labyrinth_length=DEFAULT_LENGTH+2; //длина - задаётся в настройках+добавляются ячейки для крайних стенок
+	//~ if (size_labyrinth_length%2 == 0)
+	//~ {
+		//~ size_labyrinth_length=size_labyrinth_length-1; //если задано чётное число - убирается дублирующая сторона (стена)
+	//~ }
 	int size_labyrinth_width=DEFAULT_WIDTH+2; //ширина - задаётся в настройках+добавляются ячейки для крайних стенок
+	//~ if (size_labyrinth_width%2 == 0)
+	//~ {
+		//~ size_labyrinth_width=size_labyrinth_width-1; //если задано чётное число - убирается дублирующая сторона (стена)
+	//~ }
 	int visual=0; //для отладки - выводить скелет лабиринта (по умолчанию - нет) или да
 	int no_walls_removing=0; //убирать случайные стены в лабиринте (по умолчанию - да) или нет
 	int result=0; //Отображать окончательный результат или нет (по умолчанию - нет)
@@ -72,6 +81,37 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	
+	//Для отладки аппаратного ускорения
+	int mode=0;
+	if ((argv[1]) && (!strcmp("-sw", argv[1])))
+	{
+		mode=1;
+	}
+	if ((argv[1]) && (!strcmp("-swvs", argv[1])))
+	{
+		mode=2;
+	}
+	if ((argv[1]) && (!strcmp("-hw", argv[1])))
+	{
+		mode=3;	
+	}
+	if ((argv[1]) && (!strcmp("-hwvs", argv[1])))
+	{
+		mode=4;
+	}
+	if (mode)
+	{
+		if (sdl_main_hwsw(labyrinth, player, size_labyrinth_length, size_labyrinth_width, mode))
+		{
+			clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length);
+			return 1;
+		}
+		else
+		{
+			clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length);
+			return 0;
+		}
+	}
 	//FIXME: изменить имя функции!
 	if (sdl_main(labyrinth, player, size_labyrinth_length, size_labyrinth_width))
 	{
