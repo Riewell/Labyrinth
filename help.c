@@ -1,7 +1,7 @@
 /*  help.c
 
   Лабиринт
-  Version 0.2
+  Version 0.2.2
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   

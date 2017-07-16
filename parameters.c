@@ -1,7 +1,7 @@
 /*  parameters.c
 
   Лабиринт
-  Version 0.2
+  Version 0.2.2
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -65,6 +65,8 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				if (check)
 				{
 					*length=atoi(args[parameter_count+1])+2;
+					//~ if (*length%2 == 0)
+						//~ *length=*length-1; //если задано чётное число - убирается дублирующая сторона (стена)
 					if (*length > DEFAULT_MAX_LENGTH+2)
 					{
 						printf ("Параметр '%s' содержит очень большое число (\'%s\').\nУстановлено максимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MAX_LENGTH);
@@ -112,6 +114,8 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				if (check)
 				{
 					*width=atoi(args[parameter_count+1])+2;
+					//~ if (*width%2 == 0)
+						//~ *width=*width-1; //если задано чётное число - убирается дублирующая сторона (стена)
 					if (*width > DEFAULT_MAX_WIDTH+2)
 					{
 						printf ("Параметр '%s' содержит очень большое число (\'%s\').\nУстановлено максимально возможное значение: %i.\n", args[parameter_count], args[parameter_count+1], DEFAULT_MAX_WIDTH);
@@ -125,8 +129,8 @@ int parameters(char *args[], int count, int *length, int *width, int *visual, in
 				}
 				parameter_count++;
 			}
-			//Проверка, желает ли пользователь вдля целей отладки
-			//видеть процесс создания скелета лабиринта (по умолчанию -да), или нет (путём передачи данного параметра)
+			//Проверка, желает ли пользователь для целей отладки
+			//видеть процесс создания скелета лабиринта (по умолчанию -нет), или да (путём передачи данного параметра)
 			//и переход к следующему параметру (если есть)
 			else if (!strcmp("-v", args[parameter_count]) || !strcmp("--visual", args[parameter_count]))
 			{
