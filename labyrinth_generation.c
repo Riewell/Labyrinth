@@ -1,7 +1,7 @@
 /*  labyrinth_generation.c
 
   Лабиринт
-  Version 0.2.2
+  Version 0.2.3
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -25,10 +25,14 @@
 
 #include "includes_macros.h"
 
+//int check_in_neighbor_cells (int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
+int check_in_neighbor_cells_border (int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i); //for debug - вывод переменной "i"
+int check_in_neighbor_cells_around (int x, int y, unsigned short int const direction_mask, int depth, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
 void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int count, int progress, int length, int width, const int *labyrinth_temp);
 
 int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, struct players player[])
 {
+	time_t start_global_generation=time(NULL); //Время начала общей генерации лабиринта
 	//Заполнение массива значениями по умолчанию
 	//Крайние верняя и нижняя стенки
 	for (int i = 0; i < size_labyrinth_length; i++)
@@ -59,7 +63,6 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 		}
 	}
 	//Генерация лабиринта
-	time_t start_generation=time(NULL); //Время начала общей генерации лабиринта
 	srand(time(NULL)); //инициализация генератора случайных чисел
 	//Установка начальных координат для генерации					x y-->
 	int x=0; //координата ячейки по вертикали (номер строки)		|
@@ -261,20 +264,20 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 		}
 	}
 	time_t end_generation=time(NULL); //Время окончания генерации непосредственно лабиринта
-	//printf("Время на генерацию: %.2f сек.\n", difftime(end_generation, start_generation));
+	//printf("Время на генерацию скелета: %.2f сек.\n", difftime(end_generation, start_generation));
 	//Для MinGW
-	double time_diff=end_generation-start_generation;
-	printf("Время на генерацию: %.2f сек.\n", time_diff);
+	double time_diff=end_generation-start_global_generation;
+	printf("Время на генерацию скелета: %.2f сек.\n", time_diff);
 	//Генерация координат соперников (включая игрока)
 	//Клетки с полученными координатами должны быть пусты и находиться у одной из крайних стен лабиринта
 	//(внутри лабиринта, не выпадая на крайние стены)
-	start_generation=time(NULL); //Время начала генерации
-	int *rivals_coordinates=(int*)calloc(rivals*2, sizeof( int )); //временный массив координат участников
+	time_t start_generation=time(NULL); //Время начала генерации участников
+	int *rivals_coordinates=(int*)calloc(rivals*2+2, sizeof( int )); //временный массив координат участников и выхода из лабиринта
 	if (rivals_coordinates == NULL)
 		return 1;
-	for (int i=0; i < rivals; i++)
+	for (int i=0; i < rivals+1; i++) //Генерация координат участников и выхода
 	{
-		time_t start_rivals_generation=time(NULL); //Время начала генерации координат очередного участника
+		time_t start_rival_generation=time(NULL); //Время начала генерации координат очередного участника
 		int wall, near_edge, distance;
 		do
 		{
@@ -291,7 +294,8 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			//но менее, чем большая сторона лабиринта, во избежание проблем с расчётами в формулах)
 			if (!wall && near_edge)
 			{
-				int max_distance, part_1, part_2, part_3;
+				//int max_distance, part_1, part_2, part_3;
+				int max_distance;
 				//~ max_distance=(size_labyrinth_length/2)+(size_labyrinth_width/2);
 				if (size_labyrinth_length > size_labyrinth_width)
 					//max_distance=size_labyrinth_length/2-2;
@@ -299,284 +303,21 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 				else
 					//max_distance=size_labyrinth_width/2-2;
 					max_distance=(size_labyrinth_width-2)/2;
-				//Дистанция делится на три части - по текущей стене, и, в случае, если достигнут край лабиринта,
-				//по перпендикулярной стене и (в случае достижения другого края) по параллельной стене
-				//Изначально считается, что проверка проводится по одной стене, за один проход (одну часть) сразу,
-				//сначала в одну, затем в другую сторону
-				//FIXME: сократить простыню; пересмотреть проверки distance и x_count/y_count
-				if ((x == 1 || x == size_labyrinth_width-2) && (distance))
-				{
-					//x==1 || x===size_labyrinth_width-2; y++
-					part_1=max_distance, part_2=0, part_3=0;
-					if (y+max_distance >= size_labyrinth_length-2)
-					{
-						part_1=size_labyrinth_length-y-2;
-						part_2=max_distance-part_1;
-					}
-					if (part_2 >= size_labyrinth_width-2)
-					{
-						part_2=size_labyrinth_width-3;
-						part_3=max_distance-part_1-part_2;
-					}
-					for (int y_count = 1; y_count <= part_1; y_count++)
-					{
-						printf("%i: %i %i\n", i+1, x, y+y_count);
-						if (labyrinth[((x)*size_labyrinth_length)+(y+y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					int x_count;
-					//~ Если x==size_labyrinth_width-1, то его значение будет уменьшаться при каждом проходе, иначе - увеличиваться
-					//Если x==1, то его значение будет увеличиваться при каждом проходе, иначе - уменьшаться
-					for (int y_count = 1; y_count <= part_2; y_count++)
-					{
-					
-						//~ if (x)
-							//~ x_count=-y_count;
-						//~ else
-							//~ x_count=y_count;
-						if (x == 1)
-							x_count=y_count;
-						else
-							x_count=-y_count;
-						printf("%i: %i %i\n", i+1, x+x_count, size_labyrinth_length-2);
-						if (labyrinth[((x+x_count)*size_labyrinth_length)+(size_labyrinth_length-2)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					for (int y_count = 1; y_count <= part_3; y_count++)
-					{
-						//Если при проходе part_2 x увеличивался, то x=size_labyrinth_width-2,
-						//если уменьшался - то x=1
-						if (x_count > 0)
-							x_count=size_labyrinth_width-2;
-						else
-							x_count=1;
-						printf("%i: %i %i\n", i+1, x_count, size_labyrinth_length-2-y_count);
-						if (labyrinth[(x_count*size_labyrinth_length)+(size_labyrinth_length-2-y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					//x==1 || x===size_labyrinth_width-2; y--
-					part_1=max_distance, part_2=0, part_3=0;
-					if (y-max_distance < 1)
-					{
-						part_1=y-1;
-						part_2=max_distance-part_1;
-					}
-					if (part_2 >= size_labyrinth_width-1)
-					{
-						part_2=size_labyrinth_width-2;
-						part_3=max_distance-part_1-part_2;
-					}
-					for (int y_count = 1; y_count <= part_1; y_count++)
-					{
-						printf("%i: %i %i\n", i+1, x, y-y_count);
-						if (labyrinth[((x)*size_labyrinth_length)+(y-y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					//~ Если x==size_labyrinth_width-1, то его значение будет уменьшаться при каждом проходе, иначе - увеличиваться
-					//Если x==1, то его значение будет увеличиваться при каждом проходе, иначе - уменьшаться
-					for (int y_count = 1; y_count <= part_2; y_count++)
-					{
-						if (x == 1)
-							x_count=y_count;
-						else
-							x_count=-y_count;
-						printf("%i: %i %i\n", i+1, x+x_count, 1);
-						if (labyrinth[((x+x_count)*size_labyrinth_length)+1] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					for (int y_count = 1; y_count <= part_3; y_count++)
-					{
-						//Если при проходе part_2 x увеличивался, то x_count=size_labyrinth_width-2,
-						//если уменьшался - то x_count=1
-						if (x_count > 0)
-							x_count=size_labyrinth_width-2;
-						else
-							x_count=1;
-						printf("%i: %i %i\n", i+1, x_count, y_count);
-						if (labyrinth[(x_count*size_labyrinth_length)+(y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-				}
-				if ((y == 1 || y == size_labyrinth_length-2) && (distance))
-				{
-					//y==1 || y===size_labyrinth_length-2; x++
-					part_1=max_distance, part_2=0, part_3=0;
-					if (x+max_distance >= size_labyrinth_width-2)
-					{
-						part_1=size_labyrinth_width-x-2;
-						part_2=max_distance-part_1;
-					}
-					if (part_2 >= size_labyrinth_length-2)
-					{
-						part_2=size_labyrinth_length-3;
-						part_3=max_distance-part_1-part_2;
-					}
-					for (int x_count = 1; x_count <= part_1; x_count++)
-					{
-						printf("%i: %i %i\n", i+1, x+x_count, y);
-						if (labyrinth[((x+x_count)*size_labyrinth_length)+y] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					int y_count;
-					//~ Если y==size_labyrinth_length-1, то его значение будет уменьшаться при каждом проходе, иначе - увеличиваться
-					//Если y==1, то его значение будет увеличиваться при каждом проходе, иначе - уменьшаться
-					for (int x_count = 1; x_count <= part_2; x_count++)
-					{
-						if (y == 1)
-							y_count=x_count+1;
-						else
-							y_count=size_labyrinth_length-2-x_count;
-						printf("%i: %i %i\n", i+1, size_labyrinth_width-2, y_count);
-						if (labyrinth[((size_labyrinth_width-2)*size_labyrinth_length)+(y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					for (int x_count = 1; x_count <= part_3; x_count++)
-					{
-						//Если при проходе part_2 y увеличивался, то y_count должен быть равен size_labyrinth_length-1,
-						//если уменьшался - то y_count=0
-						//~ if (y_count > 0)
-							//~ y_count=size_labyrinth_length-1;
-						//~ else
-							//~ y_count=0;
-						printf("%i: %i %i\n", i+1, size_labyrinth_width-2-x_count, y_count);
-						if (labyrinth[((size_labyrinth_width-2-x_count)*size_labyrinth_length)+(y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					//y==1 || y===size_labyrinth_length-2; x--
-					part_1=max_distance, part_2=0, part_3=0;
-					if (x-max_distance < 1)
-					{
-						part_1=x-1;
-						part_2=max_distance-part_1;
-					}
-					if (part_2 >= size_labyrinth_length-1)
-					{
-						part_2=size_labyrinth_length-2;
-						part_3=max_distance-part_1-part_2;
-					}
-					for (int x_count = 1; x_count <= part_1; x_count++)
-					{
-						printf("%i: %i %i\n", i+1, x-x_count, y);
-						if (labyrinth[((x-x_count)*size_labyrinth_length)+(y)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					//~ Если y==size_labyrinth_length-1, то его значение будет уменьшаться при каждом проходе, иначе - увеличиваться
-					//Если y==1, то его значение будет увеличиваться при каждом проходе, иначе - уменьшаться
-					for (int x_count = 1; x_count <= part_2; x_count++)
-					{
-						if (y == 1)
-							y_count=x_count+1;
-						else
-							y_count=size_labyrinth_length-2-x_count;
-						printf("%i: %i %i\n", i+1, 1, y_count);
-						if (labyrinth[(size_labyrinth_length)+(y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-					if (!distance)
-						continue;
-					for (int x_count = 1; x_count <= part_3; x_count++)
-					{
-						//Если при проходе part_2 y увеличивался, то y_count должен быть равен size_labyrinth_length-2,
-						//если уменьшался - то y_count=1
-						printf("%i: %i %i\n", i+1, x_count, y_count);
-						if (labyrinth[((x_count)*size_labyrinth_length)+(y_count)] != RIVAL)
-							distance=1;
-						else
-						{
-							distance=0;
-							break;
-						}
-					}
-				}
+				distance=check_in_neighbor_cells_border (x, y, max_distance, size_labyrinth_length, size_labyrinth_width, labyrinth, i);
 			}
 			//Если прошло более 5 сек. (?) - что-то идёт не так, счётчик for сбрасывается к началу цикла,
 			//временный массив обнуляется, основной массив восстанавливается к начальному состоянию
-			//if (difftime(time(NULL), start_rivals_generation) > 5)
+			//if (difftime(time(NULL), start_rival_generation) > 5)
 			//Для MinGW
-			if ((time(NULL)-start_rivals_generation) > 5)
+			if ((time(NULL)-start_rival_generation) > 5)
 			{
 				printf("%i: Resetted\n", i+1);
-				for (int reset_count = 0; reset_count < rivals*2; reset_count=reset_count+2)
+				for (int reset_count = 0; reset_count < rivals*2+2; reset_count=reset_count+2)
 				{
 					if (labyrinth[rivals_coordinates[reset_count]*size_labyrinth_length+rivals_coordinates[reset_count+1]] == RIVAL)
 						labyrinth[rivals_coordinates[reset_count]*size_labyrinth_length+rivals_coordinates[reset_count+1]]=CELL;
 				}
-				memset(rivals_coordinates, 0, sizeof(*rivals_coordinates)*rivals*2);
+				memset(rivals_coordinates, 0, sizeof(*rivals_coordinates)*(rivals*2+2));
 				i=-1;
 				break;
 			}
@@ -589,8 +330,11 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			labyrinth[(x*size_labyrinth_length)+y]=RIVAL;
 		}
 		printf("%iF: %i %i\n", i+1, x, y);
-		//Если прошло более 20 сек. (?) - что-то идёт не так, нормальная генерация невозможна,
+		//Если прошло более 20 сек. (?) с момента начала генерации участников (или лучше общей?) -
+		//что-то идёт не так, нормальная генерация невозможна,
 		//устанавливаются значения по умолчанию (по углам лабиринта)
+		//Выход из лабиринта уставливается посередине одной из стен в случайном порядке;
+		//если ширина и длина лабиринта различаются - то по одной из наибольших стен, также в случайном порядке
 		//FIXME: текущая реализация не сработает, если участников больше 4-х
 		//if (difftime(time(NULL), start_generation) > 20)
 		//Для MinGW
@@ -600,12 +344,15 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			//Если не было сброса - временный массив обнуляется, основной массив восстанавливается к начальному состоянию
 			if (i >= 0)
 			{
-				for (int reset_count = 0; reset_count < rivals*2; reset_count=reset_count+2)
+				for (int reset_count = 0; reset_count < rivals*2+2; reset_count=reset_count+2)
 				{
+					//if (labyrinth[rivals_coordinates[reset_count]*size_labyrinth_length+rivals_coordinates[reset_count+1]] != CELL || labyrinth[rivals_coordinates[reset_count]*size_labyrinth_length+rivals_coordinates[reset_count+1]] != WALL)
 					if (labyrinth[rivals_coordinates[reset_count]*size_labyrinth_length+rivals_coordinates[reset_count+1]] == RIVAL)
+					{
 						labyrinth[rivals_coordinates[reset_count]*size_labyrinth_length+rivals_coordinates[reset_count+1]]=CELL;
+					}
 				}
-				memset(rivals_coordinates, 0, sizeof(*rivals_coordinates)*rivals*2);
+				memset(rivals_coordinates, 0, sizeof(*rivals_coordinates)*(rivals*2+2));
 			}
 			//~ if (labyrinth[0])
 			//~ {
@@ -625,16 +372,73 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			rivals_coordinates[5]=1;
 			rivals_coordinates[6]=size_labyrinth_width-2;
 			rivals_coordinates[7]=size_labyrinth_length-2;
+			int wall_with_exit=0;
+			if (size_labyrinth_length-size_labyrinth_width > 0)
+			{
+				do
+				{
+					wall_with_exit=rand()%3; //Ожидается 0 или 2 - UP/DOWN
+				} while (wall_with_exit%2);
+			}
+			else if (size_labyrinth_length-size_labyrinth_width < 0)
+			{
+				do
+				{
+					wall_with_exit=rand()%3+1; //Ожидается 1 или 3 - RIGHT/LEFT
+				} while (!(wall_with_exit%2));
+			}
+			else
+				wall_with_exit=rand()%4;
+			printf("wall_with_exit:%i\n", wall_with_exit);
+			switch (wall_with_exit)
+			{
+				case UP:
+					rivals_coordinates[8]=1;
+					if (size_labyrinth_length%2)
+					{
+						rivals_coordinates[9]=(size_labyrinth_length-2)/2+1; //Для компенсации возможного остатка от деления
+					}
+					else
+						rivals_coordinates[9]=(size_labyrinth_length-2)/2;
+					break;
+				case RIGHT:
+					if (size_labyrinth_width%2)
+					{
+						rivals_coordinates[8]=(size_labyrinth_width-2)/2+1; //Для компенсации возможного остатка от деления
+					}
+					else
+						rivals_coordinates[8]=(size_labyrinth_width-2)/2;
+					rivals_coordinates[9]=size_labyrinth_length-2;
+					break;
+				case DOWN:
+					rivals_coordinates[8]=size_labyrinth_width-2;
+					if (size_labyrinth_length%2)
+					{
+						rivals_coordinates[9]=(size_labyrinth_length-2)/2+1; //Для компенсации возможного остатка от деления
+					}
+					else
+						rivals_coordinates[9]=(size_labyrinth_length-2)/2;
+					break;
+				case LEFT:
+					if (size_labyrinth_width%2)
+					{
+						rivals_coordinates[8]=(size_labyrinth_width-2)/2+1; //Для компенсации возможного остатка от деления
+					}
+					else
+						rivals_coordinates[8]=(size_labyrinth_width-2)/2;
+					rivals_coordinates[9]=1;
+					break;
+			}
 			//FIXME: не сработает, если участников больше 4-х
 			//~ Если участников более 4-х - заполянем координты автоматически (примерно посередине между предыдущими участниками)
 			//~ for (int rival_count=4; rival_count < rivals; rival_count++)
 			//~ {
 				//~ rivals_coordinates[rival_count*2]=rivals_coordinates[rival_count*2+1]
-			for (int break_count=0; break_count < rivals*2; break_count=break_count+2)
+			for (int break_count=0; break_count < rivals*2+2; break_count=break_count+2)
 			{
 				//Если возможно установить координату участника непосредственно в углу
 				//(клетка пуста) - так и происходит
-				//Иначе, проверяется возможность установки в соседние клетки (+x, +y, +x+y)
+				//Иначе, проверяется возможность установки в соседние клетки (+/-x, +/-y, +/-x+/-y)
 				if (!labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+rivals_coordinates[break_count+1]])
 				{
 					labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+rivals_coordinates[break_count+1]]=RIVAL;
@@ -650,11 +454,21 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 				else
 					sign_y=-1;
 				if (!labyrinth[(rivals_coordinates[break_count]+sign_x*1)*size_labyrinth_length+rivals_coordinates[break_count+1]])
-					labyrinth[(rivals_coordinates[break_count]+sign_x*1)*size_labyrinth_length+rivals_coordinates[break_count+1]]=RIVAL;
+				{
+					rivals_coordinates[break_count]=rivals_coordinates[break_count]+sign_x*1;
+					labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+rivals_coordinates[break_count+1]]=RIVAL;
+				}
 				else if (!labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+(rivals_coordinates[break_count+1]+sign_y*1)])
-					labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+(rivals_coordinates[break_count+1]+sign_y*1)]=RIVAL;
+				{
+					rivals_coordinates[break_count+1]=rivals_coordinates[break_count+1]+sign_y*1;
+					labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+rivals_coordinates[break_count+1]]=RIVAL;
+				}
 				else if (!labyrinth[(rivals_coordinates[break_count]+sign_x*1)*size_labyrinth_length+(rivals_coordinates[break_count+1]+sign_y*1)])
-					labyrinth[(rivals_coordinates[break_count]+sign_x*1)*size_labyrinth_length+(rivals_coordinates[break_count+1]+sign_y*1)]=RIVAL;
+				{
+					rivals_coordinates[break_count]=rivals_coordinates[break_count]+sign_x*1;
+					rivals_coordinates[break_count+1]=rivals_coordinates[break_count+1]+sign_y*1;
+					labyrinth[rivals_coordinates[break_count]*size_labyrinth_length+rivals_coordinates[break_count+1]]=RIVAL;
+				}
 				else
 					printf("Участник %i не расположен :-(\n", break_count/2+1);
 			}
@@ -679,44 +493,128 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			player[i].type=0;
 		//Определение, в какую сторону смотрит участник (0 - вверх, 1 - вправо, 2 - вниз, 3 - влево)
 		//Если участник находится в углу - из двух возможных направлений выбирается случайное
-		if (((rivals_coordinates[i+i] == 1) || (rivals_coordinates[i+i] == size_labyrinth_width-2)) && ((rivals_coordinates[i+i+1] == 1) || (rivals_coordinates[i+i+1] == size_labyrinth_length-2)))
+		//Учитываются также возможные сдвиги при сбросе координат в значения по умолчанию при превышении лимита времени на генерацию
+		if ((((rivals_coordinates[i+i] == 1) || (rivals_coordinates[i+i] == size_labyrinth_width-2)) && ((rivals_coordinates[i+i+1] == 1) || (rivals_coordinates[i+i+1] == size_labyrinth_length-2))) \
+		|| (((rivals_coordinates[i+i] == 2) || (rivals_coordinates[i+i] == size_labyrinth_width-3)) && ((rivals_coordinates[i+i+1] == 2) || (rivals_coordinates[i+i+1] == size_labyrinth_length-3))))
+		{
 			count=rand()%2;
-		if (rivals_coordinates[i+i] == 1)
+		}
+		if (rivals_coordinates[i+i] == 1 || rivals_coordinates[i+i] == 2)
 		{
 			if (!count)
 			{
 				player[i].direction=DOWN;
-				count++;
+				count=count+2;
 			}
 			count--;
 		}
-		if (rivals_coordinates[i+i] == size_labyrinth_width-2)
+		if (rivals_coordinates[i+i] == size_labyrinth_width-2 || rivals_coordinates[i+i] == size_labyrinth_width-3)
 		{
 			if (!count)
 			{
 				player[i].direction=UP;
-				count++;
+				count=count+2;
 			}
 			count--;
 		}
-		if (rivals_coordinates[i+i+1] == 1)
+		if (rivals_coordinates[i+i+1] == 1 || rivals_coordinates[i+i+1] == 2)
 		{
 			if (!count)
 			{
 				player[i].direction=RIGHT;
-				count++;
+				count=count+2;
 			}
 			count--;
 		}
-		if (rivals_coordinates[i+i+1] == size_labyrinth_length-2)
+		if (rivals_coordinates[i+i+1] == size_labyrinth_length-2 || rivals_coordinates[i+i+1] == size_labyrinth_length-3)
 		{
 			if (!count)
 			{
 				player[i].direction=LEFT;
-				count++;
+				count=count+2;
 			}
 			count--;
 		}
+	}
+	//Установка значения последней генерации в событие "Выход"
+	//(с учётом возможных сдвигов в случае сброса координат в значения по умолчанию при превышении лимита времени на генерацию)
+	//Если точка выхода находится в углу - из двух направлений выбирается случайное
+	count=0;
+	if ((((rivals_coordinates[rivals*2] == 1) || (rivals_coordinates[rivals*2] == size_labyrinth_width-2)) \
+	&& ((rivals_coordinates[rivals*2+1] == 1) || (rivals_coordinates[rivals*2+1] == size_labyrinth_length-2))) \
+	\
+	|| (((rivals_coordinates[rivals*2] == 2) || (rivals_coordinates[rivals*2] == size_labyrinth_width-3)) \
+	&& ((rivals_coordinates[rivals*2+1] == 2) || (rivals_coordinates[rivals*2+1] == size_labyrinth_length-3))))
+	{
+		count=rand()%2;
+	}
+	if (rivals_coordinates[rivals*2] == 1 || rivals_coordinates[rivals*2] == 2)
+	{
+		//Защита от ложного обнаружения сдвига
+		if (labyrinth[(rivals_coordinates[rivals*2]-1)*size_labyrinth_length+rivals_coordinates[rivals*2+1]] == CELL)
+			count++;
+		if (!count)
+		{
+			for (int i = 0; i < rivals_coordinates[rivals*2]; )
+			{
+				labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=CELL;
+				rivals_coordinates[rivals*2]--;
+			}
+			labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=EXIT;
+			count=count+2;
+		}
+		count--;
+	}
+	if (rivals_coordinates[rivals*2] == size_labyrinth_width-2 || rivals_coordinates[rivals*2] == size_labyrinth_width-3)
+	{
+		//Защита от ложного обнаружения сдвига
+		if (labyrinth[(rivals_coordinates[rivals*2]+1)*size_labyrinth_length+rivals_coordinates[rivals*2+1]] == CELL)
+			count++;
+		if (!count)
+		{
+			for (int i = 0; i < (size_labyrinth_width-1)-rivals_coordinates[rivals*2]; )
+			{
+				labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=CELL;
+				rivals_coordinates[rivals*2]++;
+			}
+			labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=EXIT;
+			count=count+2;
+		}
+		count--;
+	}
+	if (rivals_coordinates[rivals*2+1] == 1 || rivals_coordinates[rivals*2+1] == 3)
+	{
+		//Защита от ложного обнаружения сдвига
+		if (labyrinth[(rivals_coordinates[rivals*2])*size_labyrinth_length+(rivals_coordinates[rivals*2+1]-1)] == CELL)
+			count++;
+		if (!count)
+		{
+			for (int i = 0; i < rivals_coordinates[rivals*2+1]; )
+			{
+				labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=CELL;
+				rivals_coordinates[rivals*2+1]--;
+			}
+			labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=EXIT;
+			count=count+2;
+		}
+		count--;
+	}
+	if (rivals_coordinates[rivals*2+1] == size_labyrinth_length-2 || rivals_coordinates[rivals*2+1] == size_labyrinth_length-3)
+	{
+		//Защита от ложного обнаружения сдвига
+		if (labyrinth[(rivals_coordinates[rivals*2])*size_labyrinth_length+(rivals_coordinates[rivals*2+1]+1)] == CELL)
+			count++;
+		if (!count)
+		{
+			for (int i = 0; i < (size_labyrinth_length-1)-rivals_coordinates[rivals*2+1]; )
+			{
+				labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=CELL;
+				rivals_coordinates[rivals*2+1]++;
+			}
+			labyrinth[rivals_coordinates[rivals*2]*size_labyrinth_length+rivals_coordinates[rivals*2+1]]=EXIT;
+			count=count+2;
+		}
+		count--;
 	}
 	//~ int player=rand()%rivals;
 	//~ count=0;
@@ -738,17 +636,19 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	//printf("Время на генерацию: %.2f сек.\n", difftime(end_generation, start_generation));
 	//Для MinGW
 	time_diff=end_generation-start_generation;
-	printf("Время на генерацию: %.2f сек.\n", time_diff);
+	printf("Время на генерацию участников: %.2f сек.\n", time_diff);
 	char *dir[]={"вверх", "вправо", "вниз", "влево"};
 	for (int i=0; i < rivals; i++)
 	{
 		printf("Player %i: type=%i, x=%i, y=%i, direction=%s\n", i, player[i].type, player[i].x, player[i].y, dir[player[i].direction]);
 	}
+	puts("");
 	//printf("Время на генерацию: %.2f сек.\n", end_generation-start_generation);
-	
 	//Вывод отладки и конечного результата - скелет лабиринта (если не отключено через параметры)
 	if (result)
 		show_labyrinth_in_progress(0, 0, "Finish!", 0, 0, 100, size_labyrinth_length, size_labyrinth_width, labyrinth);
+	time_diff=time(NULL)-start_global_generation;
+	printf("Общее время генерации: %.2f сек.\n", time_diff);
 	return 0;
 }
 
@@ -784,6 +684,8 @@ void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int c
 				printf("%s", " p");
 			if (labyrinth_temp[(j*length)+k] == PLAYER)
 				printf("%s", " g");
+			if (labyrinth_temp[(j*length)+k] == EXIT)
+				printf("%s", " e");
 			//~ if (k == (length-1))
 				//~ printf ("%s", " X");
 		}
