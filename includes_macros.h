@@ -1,7 +1,7 @@
 /*  includes_macros.h
 
   Лабиринт
-  Version 0.2.2
+  Version 0.2.3
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -49,7 +49,7 @@ struct players{
 
 //Типы клеток и событий в них:
 //0 - пустая клетка, 1 - стена, 2 - будущая пустая клетка, 3 - один из соперников, 4 - игрок, 5 - выход
-enum CellType { CELL, WALL, DUMMY, RIVAL, PLAYER, EXIT };
+enum CellType { CELL, WALL, DUMMY, RIVAL, PLAYER, EXIT, TREASURE, FAKE_TREASURE, HOLE, TRAP, HOSPITAL, ARSENAL };
 //Перечисление возможных направлений (необходимость под вопросом, только для удобства чтения кода)
 //0 - вверх, 1 - вправо, 2 - вниз, 3 - влево
 enum Direction { UP, RIGHT, DOWN, LEFT };
