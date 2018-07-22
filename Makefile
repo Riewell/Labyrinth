@@ -12,7 +12,7 @@ labyrinth_generation.o: labyrinth_generation.c
 	$(CC) -c -Wall -g -std=c99 -o labyrinth_generation.o labyrinth_generation.c
 
 checking_in_neighbor_cells.o: checking_in_neighbor_cells.c
-	$(CC) -c -Wall -g -std=c99 -o checking_in_neighbor_cells.o checking_in_neighbor_cells.c
+	$(CC) $(SDL_CFLAGS) -c -Wall -g -std=c99 -o checking_in_neighbor_cells.o checking_in_neighbor_cells.c
 
 sdl_main.o: sdl_main.c
 	$(CC) $(SDL_CFLAGS) -c -Wall -g -std=c99 -o sdl_main.o sdl_main.c
@@ -28,3 +28,4 @@ help.o: help.c
 
 clean:
 	rm -rf *.o
+

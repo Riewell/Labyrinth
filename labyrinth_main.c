@@ -1,7 +1,7 @@
 /*  labyrinth_main.c
 
   Лабиринт
-  Version 0.2.2
+  Version 0.2.4
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -25,11 +25,11 @@
 
 #include "includes_macros.h"
 
-int parameters(char *args[], int count, int *length, int *width, int *visual, int *no_walls_removing, int *show_result);
-int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, struct players player[]);
-void clean_up(int *labyrinth, int const size_labyrinth_width, int const size_labyrinth_length);
-int sdl_main(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width);
-int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int requested_mode);
+int parameters(char *args[], int count, int *length, int *width, int *visual, int *no_walls_removing, int *show_result, int *num_holes);
+int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, int const holes, int *holes_array, struct players player[]);
+void clean_up(int *labyrinth, int const size_labyrinth_width, int const size_labyrinth_length, int *holes_array, int const holes);
+int sdl_main(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int const holes, int const *holes_array);
+int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int const holes, int const *holes_array, int requested_mode);
 
 int main(int argc, char *argv[])
 {
@@ -55,8 +55,9 @@ int main(int argc, char *argv[])
 	//~ }
 	int visual=0; //для отладки - выводить скелет лабиринта (по умолчанию - нет) или да
 	int no_walls_removing=0; //убирать случайные стены в лабиринте (по умолчанию - да) или нет
-	int result=0; //Отображать окончательный результат или нет (по умолчанию - нет)
-	int rivals=RIVALS; //Количество соперников в лабиринте (включая игрока!)
+	int result=0; //отображать окончательный результат или нет (по умолчанию - нет)
+	int rivals=RIVALS; //количество соперников в лабиринте (включая игрока!)
+	int holes=HOLES; //количество дыр в лабиринте
 	struct players player[rivals]; //массив структур с типом, координатами и т. д. соперников (включая игрока)
 	//Просмотр параметров запуска, если они есть
 	//Если среди параметров есть требующие завершения работы после их обработки
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
 	//и, если требуется, завершение работы программы
 	if (argc > 1)
 	{
-		if (parameters(argv, argc, &size_labyrinth_length, &size_labyrinth_width, &visual, &no_walls_removing, &result))
+		if (parameters(argv, argc, &size_labyrinth_length, &size_labyrinth_width, &visual, &no_walls_removing, &result, &holes))
 			return 0;
 	}
 	//Инициализация массива лабиринта
@@ -75,7 +76,17 @@ int main(int argc, char *argv[])
 		puts("Недостаточно свободной памяти для инициализации лабиринта");
 		return 1;
 	}
-	if (labyrinth_generation(labyrinth, size_labyrinth_length, size_labyrinth_width, visual, no_walls_removing, result, rivals, player))
+	//Инициализация массива дыр (если требуется)
+	//if (holes)
+	//{
+		int *holes_array=(int*)calloc(holes, sizeof( int ));
+		if (holes_array == NULL)
+		{
+			holes=0;
+			puts("Недостаточно свободной памяти для инициализации массива дыр");
+		}
+	//}
+	if (labyrinth_generation(labyrinth, size_labyrinth_length, size_labyrinth_width, visual, no_walls_removing, result, rivals, holes, holes_array, player))
 	{
 		puts("Недостаточно свободной памяти для генерации лабиринта");
 		return 1;
@@ -83,54 +94,61 @@ int main(int argc, char *argv[])
 	
 	//Для отладки аппаратного ускорения
 	int mode=0;
-	if ((argv[1]) && (!strcmp("-sw", argv[1])))
+	if (argc > 1)
 	{
-		mode=1;
-	}
-	if ((argv[1]) && (!strcmp("-swvs", argv[1])))
-	{
-		mode=2;
-	}
-	if ((argv[1]) && (!strcmp("-hw", argv[1])))
-	{
-		mode=3;	
-	}
-	if ((argv[1]) && (!strcmp("-hwvs", argv[1])))
-	{
-		mode=4;
+		if ((argv[1]) && (!strcmp("-sw", argv[1])))
+		{
+			mode=1;
+		}
+		if ((argv[1]) && (!strcmp("-swvs", argv[1])))
+		{
+			mode=2;
+		}
+		if ((argv[1]) && (!strcmp("-hw", argv[1])))
+		{
+			mode=3;	
+		}
+		if ((argv[1]) && (!strcmp("-hwvs", argv[1])))
+		{
+			mode=4;
+		}
 	}
 	if (mode)
 	{
-		if (sdl_main_hwsw(labyrinth, player, size_labyrinth_length, size_labyrinth_width, mode))
+		if (sdl_main_hwsw(labyrinth, player, size_labyrinth_length, size_labyrinth_width, holes, holes_array, mode))
 		{
-			clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length);
+			clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length, holes_array, holes);
 			return 1;
 		}
 		else
 		{
-			clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length);
+			clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length, holes_array, holes);
 			return 0;
 		}
 	}
 	//FIXME: изменить имя функции!
-	if (sdl_main(labyrinth, player, size_labyrinth_length, size_labyrinth_width))
+	if (sdl_main(labyrinth, player, size_labyrinth_length, size_labyrinth_width, holes, holes_array))
 	{
-		clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length);
+		clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length, holes_array, holes);
 		return 1;
 	}
 	//labyrinth={0};
 	/*memset(labyrinth, 0, sizeof(*labyrinth)*size_labyrinth_width*size_labyrinth_length);
 	free(labyrinth);
 	labyrinth=NULL;*/
-	clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length);
+	clean_up(labyrinth, size_labyrinth_width, size_labyrinth_length, holes_array, holes);
 	return 0;
 }
 
 //Попытка корректного освобождения ресурсов
-void clean_up(int *labyrinth, int const size_labyrinth_width, int const size_labyrinth_length)
+void clean_up(int *labyrinth, int const size_labyrinth_width, int const size_labyrinth_length, int *holes_array, int const holes)
 {
 	memset(labyrinth, 0, sizeof(*labyrinth)*size_labyrinth_width*size_labyrinth_length);
+	memset(holes_array, 0, sizeof(*holes_array)*holes);
+	//FIXME: перенести в atexit()
 	free(labyrinth);
+	free(holes_array);
 	labyrinth=NULL;
+	holes_array=NULL;
 	return;
 }

@@ -1,7 +1,7 @@
 /*  sdl_main_hwsw.c
 
   Лабиринт
-  Version 0.2.2
+  Version 0.2.4
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -31,11 +31,12 @@
 #define FPS 60
 
 void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players player[], int const length, int const width, int const *labyrinth_temp); //для отладки и контроля через консоль
-int previous_state_hw=0; //для отладки и контроля через консоль
 
+void checking_for_events(SDL_Window *main_window, int const coordinate, struct players player[], int *labyrinth, int const size_labyrinth_length, int const holes, int const *holes_array);
+int request_for_exit(SDL_Window *main_window, const struct players player[]);
 void clean_up_sdl_hw(SDL_Window *main_window, SDL_Renderer *renderer);
 
-int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int requested_mode)
+int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int const holes, int const *holes_array, int requested_mode)
 {
 	//Запрос на инициализацию поддержки видео и аудио
     if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
@@ -94,6 +95,10 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 	SDL_Surface *line_sf=NULL;
 	SDL_Surface *empty_background_sf=NULL;
 	SDL_Surface *empty_far_background_sf=NULL;
+	SDL_Surface *exit_morning_sf=NULL;
+	SDL_Surface *exit_day_sf=NULL;
+	SDL_Surface *exit_evening_sf=NULL;
+	SDL_Surface *exit_night_sf=NULL;
 	
 	background_sf=IMG_Load("gfx/background.png");
 	wall_sf=IMG_Load("gfx/wall.png");
@@ -105,8 +110,12 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 	line_sf=IMG_Load("gfx/line.png");
 	empty_background_sf=IMG_Load("gfx/empty_background.png");
 	empty_far_background_sf=IMG_Load("gfx/empty_far_background.png");
+	exit_morning_sf=IMG_Load("gfx/exit_morning.png");
+	exit_day_sf=IMG_Load("gfx/exit_day.png");
+	exit_evening_sf=IMG_Load("gfx/exit_evening.png");
+	exit_night_sf=IMG_Load("gfx/exit_night.png");
 	//Если не удалось загрузить какие-то файлы - вывести сообщение об ошибке с указанием последнего не загруженного файла
-	if (!background_sf || !wall_sf || !wall_side_left_sf || !wall_side_right_sf || !wall_far_sf || !wall_side_far_left_sf || !wall_side_far_right_sf || !line_sf || !empty_background_sf || !empty_far_background_sf)
+	if (!background_sf || !wall_sf || !wall_side_left_sf || !wall_side_right_sf || !wall_far_sf || !wall_side_far_left_sf || !wall_side_far_right_sf || !line_sf || !empty_background_sf || !empty_far_background_sf || !exit_morning_sf || !exit_day_sf || !exit_evening_sf || !exit_night_sf)
 	{
 		printf("IMG_Load: %s\n", IMG_GetError());
 		clean_up_sdl_hw(main_window, renderer);
@@ -122,6 +131,10 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 	SDL_Texture *line=NULL;
 	SDL_Texture *empty_background=NULL;
 	SDL_Texture *empty_far_background=NULL;
+	SDL_Texture *exit_morning=NULL;
+	SDL_Texture *exit_day=NULL;
+	SDL_Texture *exit_evening=NULL;
+	SDL_Texture *exit_night=NULL;
 	
 	background=SDL_CreateTextureFromSurface(renderer, background_sf);
 	wall=SDL_CreateTextureFromSurface(renderer, wall_sf);
@@ -133,8 +146,13 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 	line=SDL_CreateTextureFromSurface(renderer, line_sf);
 	empty_background=SDL_CreateTextureFromSurface(renderer, empty_background_sf);
 	empty_far_background=SDL_CreateTextureFromSurface(renderer, empty_far_background_sf);
+	exit_morning=SDL_CreateTextureFromSurface(renderer, exit_morning_sf);
+	exit_day=SDL_CreateTextureFromSurface(renderer, exit_day_sf);
+	exit_evening=SDL_CreateTextureFromSurface(renderer, exit_evening_sf);
+	exit_night=SDL_CreateTextureFromSurface(renderer, exit_night_sf);
+	
 	//Если не удалось загрузить какие-то текстуры - вывести сообщение об ошибке
-	if (!background || !wall || !wall_side_left || !wall_side_right || !wall_far || !wall_side_far_left || !wall_side_far_right || !line || !empty_background || !empty_far_background)
+	if (!background || !wall || !wall_side_left || !wall_side_right || !wall_far || !wall_side_far_left || !wall_side_far_right || !line || !empty_background || !empty_far_background || !exit_morning || !exit_day || !exit_evening || !exit_night)
 	{
 		printf("IMG_Load: %s\n", IMG_GetError());
 		SDL_FreeSurface(background_sf);
@@ -147,6 +165,10 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 		SDL_FreeSurface(line_sf);
 		SDL_FreeSurface(empty_background_sf);
 		SDL_FreeSurface(empty_far_background_sf);
+		SDL_FreeSurface(exit_morning_sf);
+		SDL_FreeSurface(exit_day_sf);
+		SDL_FreeSurface(exit_evening_sf);
+		SDL_FreeSurface(exit_night_sf);
 		SDL_DestroyTexture(background);
 		SDL_DestroyTexture(wall);
 		SDL_DestroyTexture(wall_side_left);
@@ -157,6 +179,10 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 		SDL_DestroyTexture(line);
 		SDL_DestroyTexture(empty_background);
 		SDL_DestroyTexture(empty_far_background);
+		SDL_DestroyTexture(exit_morning);
+		SDL_DestroyTexture(exit_day);
+		SDL_DestroyTexture(exit_evening);
+		SDL_DestroyTexture(exit_night);
 		clean_up_sdl_hw(main_window, renderer);
 		return 1;
 	}
@@ -170,7 +196,20 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 	SDL_FreeSurface(line_sf);
 	SDL_FreeSurface(empty_background_sf);
 	SDL_FreeSurface(empty_far_background_sf);
+	SDL_FreeSurface(exit_morning_sf);
+	SDL_FreeSurface(exit_day_sf);
+	SDL_FreeSurface(exit_evening_sf);
+	SDL_FreeSurface(exit_night_sf);
 	
+	//Получение значения текущего локального времени для отображения соответствующего варианта изображения выхода из лабиринта
+	//(возможно, стоит перенести в основной цикл для поддержания актуальных данных,
+	//но есть сомнения относительно производительности и необходимости в подобной возможности)
+	time_t local_rawtime=time(NULL);
+	struct tm *time_of_day;
+	time_of_day=localtime(&local_rawtime);
+	//Если что-то с получением времени пойдёт не так - устанавливается значение по умолчанию (день)
+	if (time_of_day->tm_hour < 0 || time_of_day->tm_hour > 23)
+		time_of_day->tm_hour=12;
 	SDL_Event event;
 	int request_for_quit=0;
 	int count=0;
@@ -199,7 +238,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 			else
 				sign=-1;
 			//Если впереди стена (в том числе крайняя) - отрисовка пустого фона и стены, иначе - отрисовка дальнего плана
-			if ((player[0].x-sign*1) < 0 || (player_coordinate-sign*size_labyrinth_length) >= size_labyrinth_width*size_labyrinth_length || labyrinth[player_coordinate-sign*size_labyrinth_length] == WALL)
+			if ((player[0].x-sign*1) <= 0 || (player_coordinate-sign*size_labyrinth_length) >= size_labyrinth_width*size_labyrinth_length || labyrinth[player_coordinate-sign*size_labyrinth_length] == WALL)
 			{
 				//SDL_BlitSurface(empty_far_background, NULL, screen, NULL);
 				dstrect_wall.x=0;
@@ -386,6 +425,36 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 				dstrect_wall.w=3;
 				SDL_RenderCopy(renderer, line, &srcrect_wall, &dstrect_wall);
 				//SDL_BlitSurface(line, &srcrect_wall, screen, &dstrect_wall);
+			}
+			//Если впереди выход - отрисовка его, в соответствии с текущим локальным временем
+			//(точное определение времени суток находится в includes_headers; можно будет перенести в файл конфигурации/настройки)
+			//FIXME: определиться с порядком отрисовки!
+			if (labyrinth[player_coordinate-sign*size_labyrinth_length] == EXIT)
+			{
+				srcrect_wall.x=0;
+				srcrect_wall.y=0;
+				srcrect_wall.h=394; //exit_*.png height=394
+				srcrect_wall.w=538; //exit_*.png widht=538
+				dstrect_wall.x=(window_width-538)/2;
+				dstrect_wall.y=(window_height-394)/2;
+				dstrect_wall.h=394;
+				dstrect_wall.w=538;
+				if (time_of_day->tm_hour >= EVENING && time_of_day->tm_hour < NIGHT)
+				{
+					SDL_RenderCopy(renderer, exit_evening, &srcrect_wall, &dstrect_wall);
+				}
+				if (time_of_day->tm_hour >= NIGHT || time_of_day->tm_hour < MORNING) //использовано ИЛИ, поскольку NIGHT > MORNING
+				{
+					SDL_RenderCopy(renderer, exit_night, &srcrect_wall, &dstrect_wall);
+				}
+				if (time_of_day->tm_hour >= MORNING && time_of_day->tm_hour < DAY)
+				{
+					SDL_RenderCopy(renderer, exit_morning, &srcrect_wall, &dstrect_wall);
+				}
+				if (time_of_day->tm_hour >= DAY && time_of_day->tm_hour < EVENING)
+				{
+					SDL_RenderCopy(renderer, exit_day, &srcrect_wall, &dstrect_wall);
+				}
 			}
 		}
 		//FIXME: Проверка границ лабиринта в условиях! + добавить крайние стены
@@ -587,6 +656,36 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 				SDL_RenderCopy(renderer, line, &srcrect_wall, &dstrect_wall);
 				//SDL_BlitSurface(line, &srcrect_wall, screen, &dstrect_wall);
 			}
+			//Если впереди выход - отрисовка его, в соответствии с текущим локальным временем
+			//(точное определение времени суток находится в includes_headers; можно будет перенести в файл конфигурации/настройки)
+			//FIXME: определиться с порядком отрисовки!
+			if (labyrinth[player_coordinate+1*sign] == EXIT)
+			{
+				srcrect_wall.x=0;
+				srcrect_wall.y=0;
+				srcrect_wall.h=394; //exit_*.png height=394
+				srcrect_wall.w=538; //exit_*.png widht=538
+				dstrect_wall.x=(window_width-538)/2;
+				dstrect_wall.y=(window_height-394)/2;
+				dstrect_wall.h=394;
+				dstrect_wall.w=538;
+				if (time_of_day->tm_hour >= EVENING && time_of_day->tm_hour < NIGHT)
+				{
+					SDL_RenderCopy(renderer, exit_evening, &srcrect_wall, &dstrect_wall);
+				}
+				if (time_of_day->tm_hour >= NIGHT || time_of_day->tm_hour < MORNING) //использовано ИЛИ, поскольку NIGHT > MORNING
+				{
+					SDL_RenderCopy(renderer, exit_night, &srcrect_wall, &dstrect_wall);
+				}
+				if (time_of_day->tm_hour >= MORNING && time_of_day->tm_hour < DAY)
+				{
+					SDL_RenderCopy(renderer, exit_morning, &srcrect_wall, &dstrect_wall);
+				}
+				if (time_of_day->tm_hour >= DAY && time_of_day->tm_hour < EVENING)
+				{
+					SDL_RenderCopy(renderer, exit_day, &srcrect_wall, &dstrect_wall);
+				}
+			}
 		}
 		//~ SDL_BlitSurface(wall_side_left, NULL, screen, NULL);
 		//~ dstrect_wall.x=window_width-(window_width-538)/2; //wall.png widht=538
@@ -609,7 +708,8 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 				request_for_quit=1;
 			if (event.type == SDL_KEYDOWN)
 			{
-				labyrinth[player_coordinate]=previous_state_hw; //для отладки и контроля через консоль
+				//Восстановление значения ячейки в состояние до попадания туда участником
+				labyrinth[player_coordinate]=player[0].previous_cell_state;
 				/*switch (event.key.keysym.scancode)
 				{
 					case SDL_SCANCODE_ESCAPE:
@@ -622,70 +722,427 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 						request_for_quit=1;
 						break;
 					//Если игрок нажал клавиши стрелок "вверх" или "вниз", или WS - 
-					//производится изменение координат игрока в заданную сторону
+					//производится проверка, не пытается ли игрок пройти в выход из лабиринта - 
+					//в этом случае у него будет запрошено подтверждение на выход
+					//В противном случае, производится изменение координат игрока в заданную сторону
 					//(если игрок не пытается пройти сквозь стены, в том числе крайние)
+					//После этого производится проверка на присутствие события в ячейке, в которую попал игрок
+					//(с соответствующими действиями - описаны в функции checking_for_events)
 					//Если игрок нажал клавиши "влево" или "вправо", или AD - 
 					//производится изменение направления, в котором смотрит игрок
 					//(0 - вверх, 1 - вправо, 2 - вниз, 3 - влево)
+					//При зажимании клавиши Shift клавиши "влево", "вправо", A и D позволяют смещаться в соответствующую сторону
+					//(без поворота)
+					//Скорость передвижения и поворота игрока контролируется таймером
+					//через SDL_GetTicks() и настройки SPEED_MOVE и SPEED_TURN
 					case SDLK_UP:
 					case SDLK_w:
-						if ((player[0].direction ==  UP) && (player[0].x > 1) && (labyrinth[player_coordinate-size_labyrinth_length] != WALL))
-							player[0].x=player[0].x-1;
-						//break после каждого if ?
-						if ((player[0].direction ==  RIGHT) && (player[0].y < size_labyrinth_length-2) && (labyrinth[player_coordinate+1] != WALL))
-							player[0].y=player[0].y+1;
-						if ((player[0].direction ==  DOWN) && (player[0].x < size_labyrinth_width-2) && (labyrinth[player_coordinate+size_labyrinth_length] != WALL))
-							player[0].x=player[0].x+1;
-						if ((player[0].direction ==  LEFT) && (player[0].y > 1) && (labyrinth[player_coordinate-1] != WALL))
-							player[0].y=player[0].y-1;
+						if (player[0].in_trap)
+						{
+							if ( (SDL_GetTicks()-player[0].trap_start) < TIME_IN_TRAP)
+								break;
+							else
+								player[0].in_trap=0;
+						}
+						if (player[0].in_hole)
+						{
+							if ( (SDL_GetTicks()-player[0].trap_start) < TIME_BETWEEN_HOLES)
+								break;
+							else
+								player[0].in_hole=0;
+						}
+						if ( (SDL_GetTicks()-player[0].step_start) < SPEED_MOVE)
+							break;
+						switch (player[0].direction)
+						{
+							case UP:
+								if (labyrinth[player_coordinate-size_labyrinth_length] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].x > 1) && (labyrinth[player_coordinate-size_labyrinth_length] != WALL))
+								{
+									player[0].x=player[0].x-1;
+									player[0].step_start=SDL_GetTicks();
+									//Проверка на события в ячейке, в которую попал участник
+									checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+							case RIGHT:
+								if (labyrinth[player_coordinate+1] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].y < size_labyrinth_length-2) && (labyrinth[player_coordinate+1] != WALL))
+								{
+									player[0].y=player[0].y+1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+							case DOWN:
+								if (labyrinth[player_coordinate+size_labyrinth_length] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].x < size_labyrinth_width-2) && (labyrinth[player_coordinate+size_labyrinth_length] != WALL))
+								{
+									player[0].x=player[0].x+1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+							case LEFT:
+								if (labyrinth[player_coordinate-1] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].y > 1) && (labyrinth[player_coordinate-1] != WALL))
+								{
+									player[0].y=player[0].y-1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+						}
 						break;
 					case SDLK_DOWN:
 					case SDLK_s:
-						if ((player[0].direction ==  UP) && (player[0].x < size_labyrinth_width-1) && (labyrinth[player_coordinate+size_labyrinth_length] != WALL))
-							player[0].x=player[0].x+1;
-						if ((player[0].direction ==  RIGHT) && (player[0].y > 0) && (labyrinth[player_coordinate-1] != WALL))
-							player[0].y=player[0].y-1;
-						if ((player[0].direction ==  DOWN) && (player[0].x > 0) && (labyrinth[player_coordinate-size_labyrinth_length] != WALL))
-							player[0].x=player[0].x-1;
-						if ((player[0].direction ==  LEFT) && (player[0].y < size_labyrinth_length-1) && (labyrinth[player_coordinate+1] != WALL))
-							player[0].y=player[0].y+1;
+						if (player[0].in_trap)
+						{
+							if ( (SDL_GetTicks()-player[0].trap_start) < TIME_IN_TRAP)
+								break;
+							else
+								player[0].in_trap=0;
+						}
+						if (player[0].in_hole)
+						{
+							if ( (SDL_GetTicks()-player[0].trap_start) < TIME_BETWEEN_HOLES)
+								break;
+							else
+								player[0].in_hole=0;
+						}
+						if ( (SDL_GetTicks()-player[0].step_start) < SPEED_MOVE)
+							break;
+						switch (player[0].direction)
+						{
+							case UP:
+								if (labyrinth[player_coordinate+size_labyrinth_length] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].x < size_labyrinth_width-2) && (labyrinth[player_coordinate+size_labyrinth_length] != WALL))
+								{
+									player[0].x=player[0].x+1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+							case RIGHT:
+								if (labyrinth[player_coordinate-1] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].y > 1) && (labyrinth[player_coordinate-1] != WALL))
+								{
+									player[0].y=player[0].y-1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+							case DOWN:
+								if (labyrinth[player_coordinate-size_labyrinth_length] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].x > 1) && (labyrinth[player_coordinate-size_labyrinth_length] != WALL))
+								{
+									player[0].x=player[0].x-1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+							case LEFT:
+								if (labyrinth[player_coordinate+1] == EXIT && request_for_exit(main_window, player) )
+								{
+									request_for_quit=1;
+									break;
+								}
+								if ((player[0].y < size_labyrinth_length-2) && (labyrinth[player_coordinate+1] != WALL))
+								{
+									player[0].y=player[0].y+1;
+									player[0].step_start=SDL_GetTicks();
+									checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									break;
+								}
+								break;
+						}
 						break;
 					case SDLK_LEFT:
-					case SDLK_a: //если подключить работу мыши/модификаторов (Shift) - задать на AD шаг влево/вправо вместо поворота
+					case SDLK_a:
 						//~ if (player[0].direction == 0)
 							//~ player[0].direction=3;
 						//~ break;
 						//~ player[0].direction=player[0].direction-1;
-						//~ break;						
+						//~ break;
+						//При зажимании Shift производится сдвиг влево (без поворота)
+						if (SDL_GetModState() && KMOD_SHIFT)
+						{
+							if (player[0].in_trap)
+							{
+								if ( (SDL_GetTicks()-player[0].trap_start) < TIME_IN_TRAP)
+									break;
+								else
+									player[0].in_trap=0;
+							}
+							if (player[0].in_hole)
+							{
+								if ( (SDL_GetTicks()-player[0].trap_start) < TIME_BETWEEN_HOLES)
+									break;
+								else
+									player[0].in_hole=0;
+							}
+							if ( (SDL_GetTicks()-player[0].step_start) < SPEED_MOVE)
+								break;
+							switch (player[0].direction)
+							{
+								case UP:
+									//if (labyrinth[player_coordinate-1] == EXIT && request_for_exit(main_window, player) )
+									if (labyrinth[player_coordinate-1] == EXIT)
+									{
+										//Вынесено в отдельное условие, после которого добавлено обнуление поля mod стуктуры SDL_Keysym
+										//В противном случае, при заходе в данное условие, но невыполнении его
+										//(при отказе игрока выйти из игры), состояние клавиши Shift сохранялось как "нажато",
+										//вне зависимости от её действительного состояния
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].y > 1) && (labyrinth[player_coordinate-1] != WALL))
+									{
+										player[0].y=player[0].y-1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+								case RIGHT:
+									if (labyrinth[player_coordinate-size_labyrinth_length] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].x > 1) && (labyrinth[player_coordinate-size_labyrinth_length] != WALL))
+									{
+										player[0].x=player[0].x-1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+								case DOWN:
+									if (labyrinth[player_coordinate+1] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].y < size_labyrinth_length-2) && (labyrinth[player_coordinate+1] != WALL))
+									{
+										player[0].y=player[0].y+1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+								case LEFT:
+									if (labyrinth[player_coordinate+size_labyrinth_length] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].x < size_labyrinth_width-2) && (labyrinth[player_coordinate+size_labyrinth_length] != WALL))
+									{
+										player[0].x=player[0].x+1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+							}
+							break;
+						}
+						if ( (SDL_GetTicks()-player[0].step_start) < SPEED_TURN)
+							break;
 						if (player[0].direction == UP)
 							player[0].direction=LEFT;
 						else
 							player[0].direction=player[0].direction-1;
+						player[0].step_start=SDL_GetTicks();
 						break;
 					case SDLK_RIGHT:
-					case SDLK_d: //если подключить работу мыши/модификаторов (Shift) - задать на AD шаг влево/вправо вместо поворота
+					case SDLK_d:
+						//При зажимании Shift производится сдвиг вправо (без поворота)
+						if (SDL_GetModState() && KMOD_SHIFT)
+						{
+							if (player[0].in_trap)
+							{
+								if ( (SDL_GetTicks()-player[0].trap_start) < TIME_IN_TRAP)
+									break;
+								else
+									player[0].in_trap=0;
+							}
+							if (player[0].in_hole)
+							{
+								if ( (SDL_GetTicks()-player[0].trap_start) < TIME_BETWEEN_HOLES)
+									break;
+								else
+									player[0].in_hole=0;
+							}
+							if ( (SDL_GetTicks()-player[0].step_start) < SPEED_MOVE)
+								break;
+							switch (player[0].direction)
+							{
+								case UP:
+									if (labyrinth[player_coordinate+1] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].y < size_labyrinth_length-2) && (labyrinth[player_coordinate+1] != WALL))
+									{
+										player[0].y=player[0].y+1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+								case RIGHT:
+									if (labyrinth[player_coordinate+size_labyrinth_length] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].x < size_labyrinth_width-2) && (labyrinth[player_coordinate+size_labyrinth_length] != WALL))
+									{
+										player[0].x=player[0].x+1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+								case DOWN:
+									if (labyrinth[player_coordinate-1] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].y > 1) && (labyrinth[player_coordinate-1] != WALL))
+									{
+										player[0].y=player[0].y-1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+								case LEFT:
+									if (labyrinth[player_coordinate-size_labyrinth_length] == EXIT)
+									{
+										if (request_for_exit(main_window, player) )
+										{
+											request_for_quit=1;
+											break;
+										}
+										SDL_SetModState(KMOD_NONE);
+									}
+									if ((player[0].x > 1) && (labyrinth[player_coordinate-size_labyrinth_length] != WALL))
+									{
+										player[0].x=player[0].x-1;
+										player[0].step_start=SDL_GetTicks();
+										checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										break;
+									}
+									break;
+							}
+							break;
+						}
+						if ( (SDL_GetTicks()-player[0].step_start) < SPEED_TURN)
+							break;
 						if (player[0].direction == LEFT)
 							player[0].direction=UP;
 						else
 							player[0].direction=player[0].direction+1;
+						player[0].step_start=SDL_GetTicks();
 						break;
 				}
 			}
-			if (event.type == SDL_KEYUP)
+			if (event.type == SDL_KEYDOWN)
 			{
 				switch (event.key.keysym.sym)
 				{
-					//Простая пауза
+					//Простая пауза по нажатию клавиши "p" (лат.)
 					case SDLK_p:
-						SDL_WaitEvent(&event);
-						break;
+						do
+						{
+							SDL_WaitEvent(&event);
+							//Пауза не блокирует возможность выхода из приложения
+							//(как по нажатию клавиши "ESC", так и путём закрытия окна приложения
+							if (event.type == SDL_QUIT || event.key.keysym.sym == SDLK_ESCAPE)
+							{
+								request_for_quit=1;
+								break;
+							}
+						}
+						while (event.type != SDL_KEYDOWN || event.key.keysym.sym != SDLK_p);
 				}
 			}
 		}
 		//Предыдущее состояние клетки сохраняется для последующего восстановления
 		if (labyrinth[player[0].x*size_labyrinth_length+player[0].y] != PLAYER)
-			previous_state_hw=labyrinth[player[0].x*size_labyrinth_length+player[0].y];
-		labyrinth[player[0].x*size_labyrinth_length+player[0].y]=PLAYER;
+		{
+			player[0].previous_cell_state=labyrinth[player[0].x*size_labyrinth_length+player[0].y];
+			labyrinth[player[0].x*size_labyrinth_length+player[0].y]=PLAYER;
+		}
 		//Для отладки и контроля через консоль
 		show_labyrinth_in_cmd_hw(player_coordinate, player, size_labyrinth_length, size_labyrinth_width, labyrinth);
 		//Если с момента начала обработки кадра прошло меньше времени,
@@ -720,6 +1177,10 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 	SDL_DestroyTexture(line);
 	SDL_DestroyTexture(empty_background);
 	SDL_DestroyTexture(empty_far_background);
+	SDL_DestroyTexture(exit_morning);
+	SDL_DestroyTexture(exit_day);
+	SDL_DestroyTexture(exit_evening);
+	SDL_DestroyTexture(exit_night);
 /*	IMG_Quit();
 	//SDL_DestroyTexture(bitmapTex);
     //SDL_DestroyRenderer(renderer);
@@ -759,6 +1220,7 @@ void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players 
 		for (int k = 0; k < length; k++)
 		{
 			//0 - пустая клетка, 1 - стена, 2 - будущая пустая клетка, 3 - один из соперников, 4 - игрок, 5 - выход
+			//6 - клад, 7 - ложный клад, 8 - дыра, 9 - ловушка, 10 - госпиталь, 11 - арсенал
 			if (!labyrinth_temp[(j*length)+k])
 				printf("%s", "  ");
 			if (labyrinth_temp[(j*length)+k] == WALL)
@@ -781,14 +1243,32 @@ void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players 
 			}
 			if (labyrinth_temp[(j*length)+k] == EXIT)
 				printf("%s", " e");
+			if (labyrinth_temp[(j*length)+k] == TREASURE)
+				printf("%s", " T");
+			if (labyrinth_temp[(j*length)+k] == FAKE_TREASURE)
+				printf("%s", " F");
+			if (labyrinth_temp[(j*length)+k] == HOLE)
+				printf("%s", " O");
+			if (labyrinth_temp[(j*length)+k] == TRAP)
+				printf("%s", " #");
+			if (labyrinth_temp[(j*length)+k] == HOSPITAL)
+				printf("%s", " H");
+			if (labyrinth_temp[(j*length)+k] == ARSENAL)
+				printf("%s", " A");
 		}
-		char *dir[]={"вверх", "вправо", "вниз", "влево"};
 		if (j == 0)
 			printf("  %s%i", "cell:", player_coordinate);
 		if (j == 1)
 			printf("  %s%i %s%i", "x=", player[0].x, "y=", player[0].y);
 		if (j == 2)
+		{
+			char *dir[]={"вверх", "вправо", "вниз", "влево"};
 			printf("  %s%s", "dir:", dir[player[0].direction]);
+		}
+		if (j == 3)
+			printf("  %s", "T F W @ H # (h)");
+		if (j == 4)
+			printf("  %i %i %i %i %i %i %li", player[0].has_treasure, player[0].has_fake_treasure, player[0].has_weapon, player[0].is_wounded, player[0].in_hole, player[0].in_trap, TIME_IN_TRAP-(SDL_GetTicks()-player[0].trap_start));
 		printf("%s", "\n");
 	}
 	printf("%s", "\n");
