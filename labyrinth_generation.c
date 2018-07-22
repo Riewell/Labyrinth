@@ -1,7 +1,7 @@
 /*  labyrinth_generation.c
 
   Лабиринт
-  Version 0.2.3
+  Version 0.2.4
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -25,13 +25,15 @@
 
 #include "includes_macros.h"
 
-//int check_in_neighbor_cells (int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
-int check_in_neighbor_cells_border (int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i); //for debug - вывод переменной "i"
-int check_in_neighbor_cells_around (int x, int y, unsigned short int const direction_mask, int depth, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
+//int check_in_neighbor_cells(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
+int check_in_neighbor_cells_border(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i); //for debug - вывод переменной "i"
+int check_in_neighbor_cells_around(int x, int y, unsigned short int const direction_mask, int depth, short int *cell_types, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
 void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int count, int progress, int length, int width, const int *labyrinth_temp);
 
-int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, struct players player[])
+int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, int const holes, int *holes_array, struct players player[])
 {
+	//Массив с типами клеток лабиринта (для check_in_neighbor_cells_around() )
+	short int *cell_types=(short int*)calloc(END_OF_CT_ENUM, sizeof( short int ));
 	time_t start_global_generation=time(NULL); //Время начала общей генерации лабиринта
 	//Заполнение массива значениями по умолчанию
 	//Крайние верняя и нижняя стенки
@@ -88,7 +90,6 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	{
 		//Определение количества непросмотренных соседних ячеек
 		int neighbor_for_review=0;
-		int vector=0;
 		if (x-2 >= 0 && labyrinth[(x-2)*size_labyrinth_length+y] == DUMMY)
 		{
 			neighbor_for_review++;
@@ -131,6 +132,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 					count=count+2;
 				}
 			}
+			int vector=0;
 			while (vector != 4 )
 			{
 				vector=rand()%4;
@@ -194,9 +196,23 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	}
 	
 	//Убираем случайные стенки (если не отключено через параметры)
-	if (!no_walls_removing)
+	//Если в лабиринте должна быть хоть одна дыра - требуемое количество стен будет заменено на нужное количество дыр
+	if (!no_walls_removing || holes)
 	{
-		int walls=size_labyrinth_width*size_labyrinth_length/10; //количество стенок, подлежащих уничтожению - 1/10 от размера лабиринта
+		int walls=0;
+		int holes_count=0;
+		if (!no_walls_removing)
+		{
+			//Количество стенок, подлежащих уничтожению - 1/10 от размера лабиринта
+			walls=size_labyrinth_width*size_labyrinth_length/10;
+		}
+		else
+		{
+			//Если не требуется уничтожать стены - просто заменяем нужное количество на дыры
+			walls=holes;
+		}
+		if (holes)
+			holes_count=holes; //счётчик для дыр
 		for (int i = 0; i < walls; i++)
 		{
 			int x_wall, y_wall;
@@ -208,7 +224,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 				//Если координата указывает на крайнюю стену - переход к следующей итерации цикла
 				if (!x_wall || !y_wall || x_wall == size_labyrinth_width-1 || y_wall == size_labyrinth_length-1)
 					continue;
-				if (labyrinth[(x_wall*size_labyrinth_length)+y_wall])
+				if (labyrinth[(x_wall*size_labyrinth_length)+y_wall] == WALL)
 				{
 					//Если рядом есть хотя бы одна пустая клетка (проход), значит, стену можно убрать
 					//(в противном случае есть риск получить недоступные зоны, в которые, при дальнейшей генерации,
@@ -217,6 +233,15 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 					{
 						if (!labyrinth[(x_wall-1)*size_labyrinth_length+y_wall])
 						{
+							if (holes_count)
+							{
+								labyrinth[(x_wall*size_labyrinth_length)+y_wall]=HOLE;
+								//Координаты дыры записываются в массив в виде единой координаты
+								holes_array[i]=(x_wall*size_labyrinth_length+y_wall);
+								is_wall=1;
+								holes_count--;
+								break;
+							}
 							labyrinth[(x_wall*size_labyrinth_length)+y_wall]=CELL;
 							is_wall=1;
 							break;
@@ -226,6 +251,15 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 					{
 						if (!labyrinth[x_wall*size_labyrinth_length+(y_wall-1)])
 						{
+							if (holes_count)
+							{
+								labyrinth[(x_wall*size_labyrinth_length)+y_wall]=HOLE;
+								//Координаты дыры записываются в массив в виде единой координаты
+								holes_array[i]=(x_wall*size_labyrinth_length+y_wall);
+								is_wall=1;
+								holes_count--;
+								break;
+							}
 							labyrinth[(x_wall*size_labyrinth_length)+y_wall]=CELL;
 							is_wall=1;
 							break;
@@ -235,6 +269,15 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 					{
 						if (!labyrinth[(x_wall+1)*size_labyrinth_length+y_wall])
 						{
+							if (holes_count)
+							{
+								labyrinth[(x_wall*size_labyrinth_length)+y_wall]=HOLE;
+								//Координаты дыры записываются в массив в виде единой координаты
+								holes_array[i]=(x_wall*size_labyrinth_length+y_wall);
+								is_wall=1;
+								holes_count--;
+								break;
+							}
 							labyrinth[(x_wall*size_labyrinth_length)+y_wall]=CELL;
 							is_wall=1;
 							break;
@@ -244,6 +287,15 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 					{
 						if (!labyrinth[x_wall*size_labyrinth_length+(y_wall+1)])
 						{
+							if (holes_count)
+							{
+								labyrinth[(x_wall*size_labyrinth_length)+y_wall]=HOLE;
+								//Координаты дыры записываются в массив в виде единой координаты
+								holes_array[i]=(x_wall*size_labyrinth_length+y_wall);
+								is_wall=1;
+								holes_count--;
+								break;
+							}
 							labyrinth[(x_wall*size_labyrinth_length)+y_wall]=CELL;
 							is_wall=1;
 							break;
@@ -268,7 +320,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	//Для MinGW
 	double time_diff=end_generation-start_global_generation;
 	printf("Время на генерацию скелета: %.2f сек.\n", time_diff);
-	//Генерация координат соперников (включая игрока)
+	//Генерация координат соперников (включая игрока) и выхода из лабиринта
 	//Клетки с полученными координатами должны быть пусты и находиться у одной из крайних стен лабиринта
 	//(внутри лабиринта, не выпадая на крайние стены)
 	time_t start_generation=time(NULL); //Время начала генерации участников
@@ -303,7 +355,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 				else
 					//max_distance=size_labyrinth_width/2-2;
 					max_distance=(size_labyrinth_width-2)/2;
-				distance=check_in_neighbor_cells_border (x, y, max_distance, size_labyrinth_length, size_labyrinth_width, labyrinth, i);
+				distance=check_in_neighbor_cells_border(x, y, max_distance, size_labyrinth_length, size_labyrinth_width, labyrinth, i);
 			}
 			//Если прошло более 5 сек. (?) - что-то идёт не так, счётчик for сбрасывается к началу цикла,
 			//временный массив обнуляется, основной массив восстанавливается к начальному состоянию
@@ -476,18 +528,30 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 		}
 	}
 	//Передача одного из соперников под управление игрока (в случайном порядке)
-	//и запись типа и координат соперников в массив структур
-	//int player_number=rand()%rivals;
-	int player_number=0; //для простоты и ясности - всё равно соперники располагаются по лабиринту в случайном порядке
+	//и запись типа и координат соперников, а также остальных данных в массив структур
+	int player_number=rand()%rivals;
+	//int player_number=0; //для простоты и ясности - всё равно соперники располагаются по лабиринту в случайном порядке
+	//(при расстановке по умолчанию игрок всегда будет в одном и том же месте - возвращаем случайное рапределение ролей)
+	//с последующей ручной сменой индекса в массиве (путём обмена координатами и сменой типа в данных структур)
 	for (int i = 0; i < rivals; i++)
 	{
 		count=0;
 		player[i].x=rivals_coordinates[i+i];
 		player[i].y=rivals_coordinates[i+i+1];
+		player[i].previous_cell_state=0;
+		player[i].has_treasure=0;
+		player[i].has_fake_treasure=0;
+		player[i].has_weapon=0;
+		player[i].is_wounded=0;
+		player[i].in_hole=0;
+		player[i].in_trap=0;
+		player[i].trap_start=0;
+		player[i].step_start=0;
 		if (player_number == i)
 		{
 			player[i].type=1;
-			labyrinth[(rivals_coordinates[i+i]*size_labyrinth_length+rivals_coordinates[i+i+1])]=PLAYER;
+			//Перенесено ниже, после обмена координатами с player[0]
+			//labyrinth[(rivals_coordinates[i+i]*size_labyrinth_length+rivals_coordinates[i+i+1])]=PLAYER;
 		}
 		else
 			player[i].type=0;
@@ -536,6 +600,35 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			count--;
 		}
 	}
+	//Вычленение структуры игрока из массива структур участников
+	//и присваивание номера его структуры в массиве переменной No
+	if (!player[0].type) //если игрок уже имеет верный индекс в массиве - обмен пропускается
+	{
+		int No=0;
+		for (int i = 0; i < rivals; i++)
+		{
+			if (player[i].type)
+			{
+				No = i;
+				break;
+			}
+		}
+		int temp_x;
+		int temp_y;
+		int temp_direction;
+		temp_x=player[0].x;
+		temp_y=player[0].y;
+		temp_direction=player[0].direction;
+		player[0].type=1;
+		player[0].x=player[No].x;
+		player[0].y=player[No].y;
+		player[0].direction=player[No].direction;
+		player[No].type=0;
+		player[No].x=temp_x;
+		player[No].y=temp_y;
+		player[No].direction=temp_direction;
+	}
+	labyrinth[player[0].x*size_labyrinth_length+player[0].y]=PLAYER;
 	//Установка значения последней генерации в событие "Выход"
 	//(с учётом возможных сдвигов в случае сброса координат в значения по умолчанию при превышении лимита времени на генерацию)
 	//Если точка выхода находится в углу - из двух направлений выбирается случайное
@@ -630,6 +723,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 			//~ count++;
 		//~ }
 	//~ }
+	memset(rivals_coordinates, 0, sizeof(*rivals_coordinates)*(rivals*2+2));
 	free(rivals_coordinates);
 	rivals_coordinates=NULL;
 	end_generation=time(NULL); //Время окончания генерации
@@ -643,6 +737,260 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 		printf("Player %i: type=%i, x=%i, y=%i, direction=%s\n", i, player[i].type, player[i].x, player[i].y, dir[player[i].direction]);
 	}
 	puts("");
+	//Генерация остальных событий лабиринта
+	//По умолчанию события располагаются в отдалении как минимум одной клетки от остальных событий и участников,
+	//кроме события Клад (TREASURE), которое расположено в отдалении как минимум двух клеток от всего остального,
+	//и поэтому генерируется последним (в расчёте, что в перечислении оно первое после события EXIT)
+	//Если размер лабиринта по какой-либо стороне меньше или равен 10 клеткам (не включая внешние стены) - эти правила уменьшаются на единицу
+	//Для лабиринтов размером более 100x100 правила расположения, соответственно, увеличиваются на единицу
+	//(2 клетки вокруг для всех событий и 3 - для события Клад)
+	
+	//Временный массив координат событий лабиринта (x, y, исходное значение ячейки на случай, если произойдёт сброс генерации)
+	int *events_coordinates=(int*)calloc((END_OF_CT_ENUM-EXIT-1)*3, sizeof( int ));
+	if (events_coordinates == NULL)
+		return 1;
+	int empty_cell;
+	int distance=1;
+	for (int i = END_OF_CT_ENUM-EXIT-2; i >= 0; i--)
+	{
+		if (i+EXIT+1 == HOLE)
+			continue; //FIXME: поискать другой способ исключить дыры (которые генерируются ранее, при уничтожении стен)
+		printf("Событие №%i\n", i+EXIT+1);
+		start_generation=time(NULL);
+		do
+		{
+			empty_cell=1;
+			//TREASURE может быть изменено в будущем, так что пока инициализация переменной глубины проверки
+			//и проверка на размер лабиринта для её коррекции производятся в цикле, а не снаружи
+			int depth=1;
+			if (size_labyrinth_length-2 <= 10 || size_labyrinth_width-2 <= 10)
+				depth=0;
+			if (size_labyrinth_length-2 > 100 || size_labyrinth_width-2 > 100)
+				depth=2;
+			//if (!i) //при условии, что TREASURE идёт сразу за EXIT
+			if (i == TREASURE-EXIT-1)
+				depth++;
+			x=rand()%(size_labyrinth_width-2)+1;
+			y=rand()%(size_labyrinth_length-2)+1;
+			printf("x=%i y=%i\n", x, y);
+			if (labyrinth[x*size_labyrinth_length+y] != CELL && labyrinth[x*size_labyrinth_length+y] != WALL)
+				empty_cell=0;
+			if (empty_cell)
+			{
+				//Из проверки исключаются пустые ячейки и стены
+				cell_types[CELL]=1;
+				cell_types[WALL]=1;
+				distance=check_in_neighbor_cells_around(x, y, 255, depth, cell_types, size_labyrinth_length, size_labyrinth_width, labyrinth);
+			}
+			//В случае, если не удаётся в разумное время сгенерировать событие (10 сек. в данном случае) -
+			//производится сброс, основной массив возвращается в исходное состояние
+			//Часть, подлежащая восстановлению, определяется по наличию в первой координате ("x") значения, отличного от "0",
+			//которого не может быть ни у чего, кроме крайних стен и выхода
+			if (time(NULL)-start_generation > 10)
+			{
+				printf ("Событие %i не установлено (x=%i y=%i)\n", i+EXIT+1, x, y);
+				puts("Откат к простой расстановке");
+				system("sleep 1");
+				for (int break_count = 0; break_count < (END_OF_CT_ENUM-EXIT-1)*3; break_count=break_count+3)
+				{
+					if (events_coordinates[break_count] > 0)
+					{
+						labyrinth[events_coordinates[break_count]*size_labyrinth_length+events_coordinates[break_count+1]]=events_coordinates[break_count+2];
+					}
+				}
+				memset(events_coordinates, 0, sizeof(*events_coordinates)*((END_OF_CT_ENUM-EXIT-1)*3));
+				i=-1;
+				break;
+			}
+		} while (!empty_cell || !distance);
+		if (i >= 0)
+		{
+			events_coordinates[i*3]=x;   									//0->0 1->3 2->6 3->9  4->12 5->15
+			events_coordinates[i*3+1]=y; 									//0->1 1->4 2->7 3->10 4->13 5->16
+			events_coordinates[i*3+2]=labyrinth[x*size_labyrinth_length+y]; //0->2 1->5 2->8 3->11 4->14 5->17
+			labyrinth[x*size_labyrinth_length+y]=i+EXIT+1;
+		}
+	}
+	//Если массив с координатами событий пуст - был сброс, события будут располагаться в предопределённом порядке
+	//с минимальным фактором случайности
+	if (!events_coordinates[0])
+	{
+		//TREASURE
+		if (size_labyrinth_width%2)
+		{
+			events_coordinates[0]=(size_labyrinth_width-2)/2+1;
+		}
+		else
+			events_coordinates[0]=(size_labyrinth_width-2)/2;
+		if (size_labyrinth_length%2)
+		{
+			events_coordinates[1]=(size_labyrinth_length-2)/2+1;
+		}
+		else
+			events_coordinates[1]=(size_labyrinth_length-2)/2;
+		events_coordinates[2]=TREASURE;
+		//Определение, в какую сторону будет производится дальнейшая расстановка
+		//(по часовой стрелке: 0 - вверх, 1 - вправо, 2 - вниз, 3 - влево)
+		int event_gen_way=rand()%4;
+		printf("Направление генерации: %i\n", event_gen_way);
+		switch (event_gen_way)
+		{
+			case UP:
+				//FAKE_TREASURE
+				events_coordinates[3]=events_coordinates[0]/2;
+				events_coordinates[4]=events_coordinates[1];
+				//Дыры генерируются ранее, на этапе уничтожения стен
+				//Оставлено для корректности расчёта координат
+				//HOLE
+				//TODO: массив дыр
+				events_coordinates[6]=events_coordinates[3]+1;
+				events_coordinates[7]=events_coordinates[4]/2;
+				//TRAP
+				//TODO: несколько ловушек, в зависимости от размера лабиринта
+				events_coordinates[9]=(size_labyrinth_width-1)-events_coordinates[6];
+				events_coordinates[10]=events_coordinates[7]+1;
+				//HOSPITAL
+				events_coordinates[12]=events_coordinates[9]+1;
+				events_coordinates[13]=(size_labyrinth_length-1)-events_coordinates[10];
+				//ARSENAL
+				events_coordinates[15]=events_coordinates[12]/2;
+				if (events_coordinates[15]+1 != events_coordinates[0])
+					events_coordinates[15]++;
+				events_coordinates[16]=events_coordinates[13];
+				break;
+			case RIGHT:
+				//FAKE_TREASURE
+				events_coordinates[3]=events_coordinates[0];
+				events_coordinates[4]=(size_labyrinth_length-1)-events_coordinates[1]/2;
+				//Дыры генерируются ранее, на этапе уничтожения стен
+				//Оставлено для корректности расчёта координат
+				//HOLE
+				//TODO: массив дыр
+				events_coordinates[6]=events_coordinates[3]/2;
+				events_coordinates[7]=events_coordinates[4]-1;
+				//TRAP
+				//TODO: несколько ловушек, в зависимости от размера лабиринта
+				events_coordinates[9]=events_coordinates[6]+1;
+				events_coordinates[10]=events_coordinates[7]/2;
+				//HOSPITAL
+				events_coordinates[12]=(size_labyrinth_width-1)-events_coordinates[9];
+				events_coordinates[13]=events_coordinates[10]-1;
+				//ARSENAL
+				events_coordinates[15]=events_coordinates[12];
+				events_coordinates[16]=(size_labyrinth_length-1)-events_coordinates[13];
+				if (events_coordinates[16]-1 != events_coordinates[1])
+					events_coordinates[16]--;
+				break;
+			case DOWN:
+				//FAKE_TREASURE
+				events_coordinates[3]=(size_labyrinth_width-1)-events_coordinates[0]/2;
+				events_coordinates[4]=events_coordinates[1];
+				//Дыры генерируются ранее, на этапе уничтожения стен
+				//Оставлено для корректности расчёта координат
+				//HOLE
+				//TODO: массив дыр
+				events_coordinates[6]=events_coordinates[3]-1;
+				events_coordinates[7]=(size_labyrinth_length-1)-events_coordinates[4]/2;
+				//TRAP
+				//TODO: несколько ловушек, в зависимости от размера лабиринта
+				events_coordinates[9]=events_coordinates[6]/2;
+				events_coordinates[10]=events_coordinates[7]-1;
+				//HOSPITAL
+				events_coordinates[12]=events_coordinates[9]-1;
+				events_coordinates[13]=events_coordinates[10]/2;
+				//ARSENAL
+				events_coordinates[15]=(size_labyrinth_width-1)-events_coordinates[12];
+				if (events_coordinates[15]-1 != events_coordinates[0])
+					events_coordinates[15]--;
+				events_coordinates[16]=events_coordinates[13];
+				break;
+			case LEFT:
+				//FAKE_TREASURE
+				events_coordinates[3]=events_coordinates[0];
+				events_coordinates[4]=events_coordinates[1]/2;
+				//Дыры генерируются ранее, на этапе уничтожения стен
+				//Оставлено для корректности расчёта координат
+				//HOLE
+				//TODO: массив дыр
+				events_coordinates[6]=(size_labyrinth_width-1)-events_coordinates[3]/2;
+				events_coordinates[7]=events_coordinates[4]+1;
+				//TRAP
+				//TODO: несколько ловушек, в зависимости от размера лабиринта
+				events_coordinates[9]=events_coordinates[6]-1;
+				events_coordinates[10]=(size_labyrinth_length-1)-events_coordinates[7];
+				//HOSPITAL
+				events_coordinates[12]=events_coordinates[9]/2;
+				events_coordinates[13]=events_coordinates[10]+1;
+				//ARSENAL
+				events_coordinates[15]=events_coordinates[12];
+				events_coordinates[16]=events_coordinates[13]/2;
+				if (events_coordinates[16]+1 != events_coordinates[1])
+					events_coordinates[16]++;
+				break;
+		}
+		events_coordinates[5]=FAKE_TREASURE;
+		//Дыры генерируются ранее, на этапе уничтожения стен
+		//Оставлено для корректности расчёта координат
+		events_coordinates[8]=HOLE;
+		events_coordinates[11]=TRAP;
+		events_coordinates[14]=HOSPITAL;
+		events_coordinates[17]=ARSENAL;
+		//Если возможно установить событие непосредственно в вычисленную клетку - так и происходит;
+		//иначе, проверяется возможность установки в соседние клетки (+/-x, +/-y - в случайном порядке)
+		for (int i = 0; i < (END_OF_CT_ENUM-EXIT-1)*3; i=i+3)
+		{
+			if (events_coordinates[i+2] == HOLE)
+				continue; //FIXME: поискать другой способ исключить дыры (которые генерируются ранее, при уничтожении стен)
+			printf("Событие %i до установки: x=%i y=%i\n", events_coordinates[i+2], events_coordinates[i], events_coordinates[i+1]);
+			if (labyrinth[(events_coordinates[i]*size_labyrinth_length)+events_coordinates[i+1]] == WALL || labyrinth[(events_coordinates[i]*size_labyrinth_length)+events_coordinates[i+1]] == CELL)
+			{
+				labyrinth[(events_coordinates[i]*size_labyrinth_length)+events_coordinates[i+1]]=events_coordinates[i+2];
+				printf("Событие %i после установки: x=%i y=%i\n", events_coordinates[i+2], events_coordinates[i], events_coordinates[i+1]);
+				continue;
+			}
+			int sign=rand()%2;
+			if (!sign)
+				sign=-1;
+			if (events_coordinates[i] == 1 || events_coordinates[i] == size_labyrinth_width-2)
+			{
+				if (labyrinth[(events_coordinates[i]*size_labyrinth_length)+(events_coordinates[i+1]+sign*1)] == WALL || labyrinth[(events_coordinates[i]*size_labyrinth_length)+(events_coordinates[i+1]+sign*1)] == CELL)
+				{
+					labyrinth[(events_coordinates[i]*size_labyrinth_length)+(events_coordinates[i+1]+sign*1)]=events_coordinates[i+2];
+				}
+				else if (labyrinth[(events_coordinates[i]*size_labyrinth_length)+(events_coordinates[i+1]-sign*1)] == WALL || labyrinth[(events_coordinates[i]*size_labyrinth_length)+(events_coordinates[i+1]-sign*1)] == CELL)
+				{
+					labyrinth[(events_coordinates[i]*size_labyrinth_length)+(events_coordinates[i+1]-sign*1)]=events_coordinates[i+2];
+				}
+				else
+					printf("Событие %i не установлено (x=%i y=%i)\n", events_coordinates[i+2], events_coordinates[i], events_coordinates[i+1]);
+			}
+			if (events_coordinates[i+1] == 1 || events_coordinates[i+1] == size_labyrinth_length-2)
+			{
+				if (labyrinth[(events_coordinates[i]+sign*1)*size_labyrinth_length+events_coordinates[i+1]] == WALL || labyrinth[(events_coordinates[i]+sign*1)*size_labyrinth_length+events_coordinates[i+1]] == CELL)
+				{
+					labyrinth[(events_coordinates[i]+sign*1)*size_labyrinth_length+events_coordinates[i+1]]=events_coordinates[i+2];
+				}
+				else if (labyrinth[(events_coordinates[i]-sign*1)*size_labyrinth_length+events_coordinates[i+1]] == WALL || labyrinth[(events_coordinates[i]-sign*1)*size_labyrinth_length+events_coordinates[i+1]] == CELL)
+				{
+					labyrinth[(events_coordinates[i]-sign*1)*size_labyrinth_length+events_coordinates[i+1]]=events_coordinates[i+2];
+				}
+				else
+					printf("Событие %i не установлено (x=%i y=%i)\n", events_coordinates[i+2], events_coordinates[i], events_coordinates[i+1]);
+			}
+			printf("Событие %i после установки: x=%i y=%i\n", events_coordinates[i+2], events_coordinates[i], events_coordinates[i+1]);
+		}
+	}
+	
+	time_diff=(time(NULL)-start_generation);
+	printf("Время на генерацию событий: %.2f сек.\n", time_diff);
+	//TODO: вынести в отдельную функцию, для обработки внештатного завершения работы (по return 1)
+	memset(cell_types, 0, sizeof((*cell_types)*END_OF_CT_ENUM));
+	memset(events_coordinates, 0, sizeof(*events_coordinates)*((END_OF_CT_ENUM-EXIT-1)*3));
+	free(cell_types);
+	free(events_coordinates);
+	cell_types=NULL;
+	events_coordinates=NULL;
+	
 	//printf("Время на генерацию: %.2f сек.\n", end_generation-start_generation);
 	//Вывод отладки и конечного результата - скелет лабиринта (если не отключено через параметры)
 	if (result)
@@ -673,7 +1021,8 @@ void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int c
 		{
 			//~ if (k == 0)
 				//~ printf ("%s", " X");
-			//0 - пустая клетка, 1 - стена, 2 - будущая пустая клетка, 3 - один из соперников, 4 - игрок
+			//0 - пустая клетка, 1 - стена, 2 - будущая пустая клетка, 3 - один из соперников, 4 - игрок, 5 - выход
+			//6 - клад, 7 - ложный клад, 8 - дыра, 9 - ловушка, 10 - госпиталь, 11 - арсенал
 			if (!labyrinth_temp[(j*length)+k])
 				printf("%s", "  ");
 			if (labyrinth_temp[(j*length)+k] == WALL)
@@ -686,6 +1035,18 @@ void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int c
 				printf("%s", " g");
 			if (labyrinth_temp[(j*length)+k] == EXIT)
 				printf("%s", " e");
+			if (labyrinth_temp[(j*length)+k] == TREASURE)
+				printf("%s", " T");
+			if (labyrinth_temp[(j*length)+k] == FAKE_TREASURE)
+				printf("%s", " F");
+			if (labyrinth_temp[(j*length)+k] == HOLE)
+				printf("%s", " O");
+			if (labyrinth_temp[(j*length)+k] == TRAP)
+				printf("%s", " #");
+			if (labyrinth_temp[(j*length)+k] == HOSPITAL)
+				printf("%s", " H");
+			if (labyrinth_temp[(j*length)+k] == ARSENAL)
+				printf("%s", " A");
 			//~ if (k == (length-1))
 				//~ printf ("%s", " X");
 		}

@@ -1,7 +1,7 @@
 /*  checking_in_neighbor_cells.c
 
   Лабиринт
-  Version 0.2.3
+  Version 0.2.4
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -23,12 +23,14 @@
   MA 02110-1301, USA.
 */
 
+#include "SDL.h"
+#include "SDL_image.h"
 #include "includes_macros.h"
 
 //Проверка соседних ячеек по  краям лабиринта (заданная ячейка должна находиться около края лабиринта)
 
-//int check_in_neighbor_cells (int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth)
-int check_in_neighbor_cells_border (int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i) //for debug - вывод переменной "i"
+//int check_in_neighbor_cells(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth)
+int check_in_neighbor_cells_border(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i) //for debug - вывод переменной "i"
 {
 	int part_1, part_2, part_3;
 	int distance=1;
@@ -295,187 +297,450 @@ int check_in_neighbor_cells_border (int x, int y, int const max_distance, int co
 // 7 x 3                     6 x 2                                           64  x  4
 // 6 5 4                     5 4 3                                           32 16  8
 //Проверка может проводиться на произвольную дистанцию от заданной клетки, от ближних ячеек к более дальним
-//Если в проверяемых ячейках будет обнаружено что-то, кроме пустоты или стены - производится выход из функции
-//TODO: проверка ячеек на заданное значение (находится ли в соседних ячейках требуемое событие) (?)
-int check_in_neighbor_cells_around (int x, int y, unsigned short int const direction_mask, int depth, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth) //Возможно, будет лучше заменить short int на char?
+//Если в проверяемых ячейках будет обнаружено что-то, кроме заданного в параметрах
+//(через массив cell_types) - производится выход из функции
+//FIXME: сейчас производится проверка на всё, кроме искомого, что может сказываться на производительности
+int check_in_neighbor_cells_around(int x, int y, unsigned short int const direction_mask, int depth, short int *cell_types, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth) //Возможно, будет лучше заменить short int на char?
 {
 	int distance=1;
 	for (int depth_count = 1; depth_count <= depth; depth_count++)
 	{
 		for (int direction_count = 1; direction_count <= 128; direction_count=direction_count*2)
 		{
-			switch (direction_mask&direction_count) //говорят, операции с битами медленные, возможно, стоит поискать другой способ
+			for (int cell_type=0; cell_type < END_OF_CT_ENUM; cell_type++)
 			{
-				case 1:
-					if (x-depth_count > 0)
+				if (!cell_types[cell_type])
+				{
+					switch (direction_mask&direction_count) //говорят, операции с битами медленные, возможно, стоит поискать другой способ
 					{
-						if (labyrinth[(x-depth_count)*size_labyrinth_length+y] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+y] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					break;
-				case 2:
-					if (x-depth_count > 0 && y+depth_count < size_labyrinth_length-1)
-					{
-						if (labyrinth[(x-depth_count)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y+depth_count)] != WALL) 
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					if (depth_count > 1)
-					{
-						for (int i = 1; i < depth_count; i++)
-						{
-							if (x-depth_count > 0 && y+i < size_labyrinth_length-1)
+						case 1:
+							if (x-depth_count > 0)
 							{
-								if (labyrinth[(x-depth_count)*size_labyrinth_length+(y+i)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y+i)] != WALL)
+								//if (labyrinth[(x-depth_count)*size_labyrinth_length+y] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+y] != WALL)
+								if (labyrinth[(x-depth_count)*size_labyrinth_length+y] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-							if (x-i > 0 && y+depth_count < size_labyrinth_length-1)
+							break;
+						case 2:
+							if (x-depth_count > 0 && y+depth_count < size_labyrinth_length-1)
 							{
-								if (labyrinth[(x-i)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x-i)*size_labyrinth_length+(y+depth_count)] != WALL)
+								//if (labyrinth[(x-depth_count)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y+depth_count)] != WALL)
+								if (labyrinth[(x-depth_count)*size_labyrinth_length+(y+depth_count)] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-						}
-					}
-					break;
-				case 4:
-					if (y+depth_count < size_labyrinth_length-1)
-					{
-						if (labyrinth[x*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[x*size_labyrinth_length+(y+depth_count)] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					break;
-				case 8:
-					if (x+depth_count < size_labyrinth_width-1  && y+depth_count < size_labyrinth_length-1)
-					{
-						if (labyrinth[(x+depth_count)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y+depth_count)] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					if (depth_count > 1)
-					{
-						for (int i = 1; i < depth_count; i++)
-						{
-							if (x+depth_count < size_labyrinth_width-1  && y+i < size_labyrinth_length-1)
+							if (depth_count > 1)
 							{
-								if (labyrinth[(x+depth_count)*size_labyrinth_length+(y+i)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y+i)] != WALL)
+								for (int i = 1; i < depth_count; i++)
+								{
+									if (x-depth_count > 0 && y+i < size_labyrinth_length-1)
+									{
+										//if (labyrinth[(x-depth_count)*size_labyrinth_length+(y+i)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y+i)] != WALL)
+										if (labyrinth[(x-depth_count)*size_labyrinth_length+(y+i)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+									if (x-i > 0 && y+depth_count < size_labyrinth_length-1)
+									{
+										//if (labyrinth[(x-i)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x-i)*size_labyrinth_length+(y+depth_count)] != WALL)
+										if (labyrinth[(x-i)*size_labyrinth_length+(y+depth_count)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+								}
+							}
+							break;
+						case 4:
+							if (y+depth_count < size_labyrinth_length-1)
+							{
+								//if (labyrinth[x*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[x*size_labyrinth_length+(y+depth_count)] != WALL)
+								if (labyrinth[x*size_labyrinth_length+(y+depth_count)] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-							if (x+i < size_labyrinth_width-1  && y+depth_count < size_labyrinth_length-1)
+							break;
+						case 8:
+							if (x+depth_count < size_labyrinth_width-1  && y+depth_count < size_labyrinth_length-1)
 							{
-								if (labyrinth[(x+i)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x+i)*size_labyrinth_length+(y+depth_count)] != WALL)
+								//if (labyrinth[(x+depth_count)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y+depth_count)] != WALL)
+								if (labyrinth[(x+depth_count)*size_labyrinth_length+(y+depth_count)] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-						}
-					}
-					break;
-				case 16:
-					if (x+depth_count < size_labyrinth_width-1)
-					{
-						if (labyrinth[(x+depth_count)*size_labyrinth_length+y] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+y] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					break;
-				case 32:
-					if (x+depth_count < size_labyrinth_width-1 && y-depth_count > 0)
-					{
-						if (labyrinth[(x+depth_count)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y-depth_count)] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					if (depth_count > 1)
-					{
-						for (int i = 1; i < depth_count; i++)
-						{
-							if (x+depth_count < size_labyrinth_width-1 && y-i > 0)
+							if (depth_count > 1)
 							{
-								if (labyrinth[(x+depth_count)*size_labyrinth_length+(y-i)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y-i)] != WALL)
+								for (int i = 1; i < depth_count; i++)
+								{
+									if (x+depth_count < size_labyrinth_width-1  && y+i < size_labyrinth_length-1)
+									{
+										//if (labyrinth[(x+depth_count)*size_labyrinth_length+(y+i)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y+i)] != WALL)
+										if (labyrinth[(x+depth_count)*size_labyrinth_length+(y+i)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+									if (x+i < size_labyrinth_width-1  && y+depth_count < size_labyrinth_length-1)
+									{
+										//if (labyrinth[(x+i)*size_labyrinth_length+(y+depth_count)] != CELL && labyrinth[(x+i)*size_labyrinth_length+(y+depth_count)] != WALL)
+										if (labyrinth[(x+i)*size_labyrinth_length+(y+depth_count)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+								}
+							}
+							break;
+						case 16:
+							if (x+depth_count < size_labyrinth_width-1)
+							{
+								//if (labyrinth[(x+depth_count)*size_labyrinth_length+y] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+y] != WALL)
+								if (labyrinth[(x+depth_count)*size_labyrinth_length+y] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-							if (x+i < size_labyrinth_width-1 && y-depth_count > 0)
+							break;
+						case 32:
+							if (x+depth_count < size_labyrinth_width-1 && y-depth_count > 0)
 							{
-								if (labyrinth[(x+i)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x+i)*size_labyrinth_length+(y-depth_count)] != WALL)
+								//if (labyrinth[(x+depth_count)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y-depth_count)] != WALL)
+								if (labyrinth[(x+depth_count)*size_labyrinth_length+(y-depth_count)] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-						}
-					}
-					break;
-				case 64:
-					if (y-depth_count > 0)
-					{
-						if (labyrinth[x*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[x*size_labyrinth_length+(y-depth_count)] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					break;
-				case 128:
-					if (x-depth_count > 0 && y-depth_count > 0)
-					{
-						if (labyrinth[(x-depth_count)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y-depth_count)] != WALL)
-						{
-							distance=0;
-							return distance;
-						}
-					}
-					if (depth_count > 1)
-					{
-						for (int i = 1; i < depth_count; i++)
-						{
-							if (x-depth_count > 0 && y-i > 0)
+							if (depth_count > 1)
 							{
-								if (labyrinth[(x-depth_count)*size_labyrinth_length+(y-i)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y-i)] != WALL)
+								for (int i = 1; i < depth_count; i++)
+								{
+									if (x+depth_count < size_labyrinth_width-1 && y-i > 0)
+									{
+										//if (labyrinth[(x+depth_count)*size_labyrinth_length+(y-i)] != CELL && labyrinth[(x+depth_count)*size_labyrinth_length+(y-i)] != WALL)
+										if (labyrinth[(x+depth_count)*size_labyrinth_length+(y-i)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+									if (x+i < size_labyrinth_width-1 && y-depth_count > 0)
+									{
+										//if (labyrinth[(x+i)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x+i)*size_labyrinth_length+(y-depth_count)] != WALL)
+										if (labyrinth[(x+i)*size_labyrinth_length+(y-depth_count)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+								}
+							}
+							break;
+						case 64:
+							if (y-depth_count > 0)
+							{
+								//if (labyrinth[x*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[x*size_labyrinth_length+(y-depth_count)] != WALL)
+								if (labyrinth[x*size_labyrinth_length+(y-depth_count)] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-							if (x-i > 0 && y-depth_count > 0)
+							break;
+						case 128:
+							if (x-depth_count > 0 && y-depth_count > 0)
 							{
-								if (labyrinth[(x-i)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x-i)*size_labyrinth_length+(y-depth_count)] != WALL)
+								//if (labyrinth[(x-depth_count)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y-depth_count)] != WALL)
+								if (labyrinth[(x-depth_count)*size_labyrinth_length+(y-depth_count)] == cell_type)
 								{
 									distance=0;
 									return distance;
 								}
 							}
-						}
+							if (depth_count > 1)
+							{
+								for (int i = 1; i < depth_count; i++)
+								{
+									if (x-depth_count > 0 && y-i > 0)
+									{
+										//if (labyrinth[(x-depth_count)*size_labyrinth_length+(y-i)] != CELL && labyrinth[(x-depth_count)*size_labyrinth_length+(y-i)] != WALL)
+										if (labyrinth[(x-depth_count)*size_labyrinth_length+(y-i)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+									if (x-i > 0 && y-depth_count > 0)
+									{
+										//if (labyrinth[(x-i)*size_labyrinth_length+(y-depth_count)] != CELL && labyrinth[(x-i)*size_labyrinth_length+(y-depth_count)] != WALL)
+										if (labyrinth[(x-i)*size_labyrinth_length+(y-depth_count)] == cell_type)
+										{
+											distance=0;
+											return distance;
+										}
+									}
+								}
+							}
+							break;
 					}
-					break;
+				}
 			}
 		}
 	}
 	return distance;
+}
+
+//Проверка на события в ячейке, в которую попал участник
+//с соответствующим изменением состояния участника и ячейки (где требуется)
+//В случае, если игрок найдёт клад, обманный клад или арсенал, имея при этом что-то из перечисленного -
+//ему будет выдан запрос на обмен (так как одновременно можно нести только один из вышеперечисленных предметов)
+//В случае согласия - игрок "поднимает" содержимое ячейки в руки, оставляя в ячейке то, что у него было
+//(кроме оружия оно может быть получено только из Арсенала, соответственно, при выбрасывании в данной ячейке не появляется (изчезает))
+
+//FIXME: проверить необходимсть наличия обращениея к screen (возможно, понадобится для вывода сообщений в дальнейшем)
+
+void checking_for_events(SDL_Window *main_window, SDL_Surface *screen, int const coordinate, struct players player[], int *labyrinth, int const size_labyrinth_length, int const holes, int const *holes_array)
+{
+	char drop_take_string[80];
+	SDL_MessageBoxButtonData drop_take[] = { { 0, 0, "Yes" }, { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 1, "No" }, };
+	SDL_MessageBoxData message_drop_take={SDL_MESSAGEBOX_WARNING , main_window, "", drop_take_string, 2, drop_take, NULL};
+	int button_id;
+	switch (labyrinth[coordinate])
+	{
+		case TREASURE:
+			if (player[0].has_fake_treasure)
+			{
+				strcpy(drop_take_string, "Throw out treasure and pick up another?");
+				if (SDL_ShowMessageBox(&message_drop_take, &button_id) < 0)
+				{
+			        SDL_Log("Error displaying message box");
+			        return;
+			    }
+			    SDL_SetModState(KMOD_NONE);
+				if (button_id == -1)
+				{
+			        SDL_Log("no selection");
+			    }
+			    else
+			    {
+			        if (!button_id)
+			        {
+						player[0].has_fake_treasure=0;
+						player[0].has_treasure=1;
+						labyrinth[coordinate]=FAKE_TREASURE;
+						break;
+					}
+					else
+						break;
+				}
+			}
+			if (player[0].has_weapon)
+			{
+				strcpy(drop_take_string, "Throw out weapon and pick up treasure?");
+				if (SDL_ShowMessageBox(&message_drop_take, &button_id) < 0)
+				{
+			        SDL_Log("Error displaying message box");
+			        return;
+			    }
+			    SDL_SetModState(KMOD_NONE);
+				if (button_id == -1)
+				{
+			        SDL_Log("no selection");
+			    }
+			    else
+			    {
+			        if (!button_id)
+			        {
+						player[0].has_weapon=0;
+						player[0].has_treasure=1;
+						labyrinth[coordinate]=CELL;
+						break;
+					}
+					else
+						break;
+				}
+			}
+			player[0].has_treasure=1;
+			labyrinth[coordinate]=CELL;
+			break;
+		case FAKE_TREASURE:
+			if (player[0].has_treasure)
+			{
+				strcpy(drop_take_string, "Throw out treasure and pick up another?");
+				if (SDL_ShowMessageBox(&message_drop_take, &button_id) < 0)
+				{
+			        SDL_Log("Error displaying message box");
+			        return;
+			    }
+			    SDL_SetModState(KMOD_NONE);
+				if (button_id == -1)
+				{
+			        SDL_Log("no selection");
+			    }
+			    else
+			    {
+			        if (!button_id)
+			        {
+						player[0].has_treasure=0;
+						player[0].has_fake_treasure=1;
+						labyrinth[coordinate]=TREASURE;
+						break;
+					}
+					else
+						break;
+				}
+			}
+			if (player[0].has_weapon)
+			{
+				strcpy(drop_take_string, "Throw out weapon and pick up treasure?");
+				if (SDL_ShowMessageBox(&message_drop_take, &button_id) < 0)
+				{
+			        SDL_Log("Error displaying message box");
+			        return;
+			    }
+			    SDL_SetModState(KMOD_NONE);
+				if (button_id == -1)
+				{
+			        SDL_Log("no selection");
+			    }
+			    else
+			    {
+			        if (!button_id)
+			        {
+						player[0].has_weapon=0;
+						player[0].has_fake_treasure=1;
+						labyrinth[coordinate]=CELL;
+						break;
+					}
+					else
+						break;
+				}
+			}
+			player[0].has_fake_treasure=1;
+			labyrinth[coordinate]=CELL;
+			break;
+		case HOLE:
+			player[0].in_hole=1;
+			//player[0].trap_start=time(NULL);
+			player[0].trap_start=SDL_GetTicks();
+			
+			/*//Попытка плавного затухания экрана ("спецэффекты") - SDL 1.2
+			int win_width;
+			int win_height;
+			SDL_GetWindowSize(main_window, &win_width, &win_height);
+			SDL_Surface *black_rect;
+			if ( (black_rect=SDL_CreateRGBSurface(0, win_width, win_height, 32, 0, 0, 0, 0)) == NULL)
+				SDL_Log("SDL_CreateRGBSurface(black_rect) failed: %s", SDL_GetError());
+			SDL_SetSurfaceBlendMode(black_rect, SDL_BLENDMODE_BLEND);
+			Uint32 ticks=SDL_GetTicks();
+			//while (SDL_GetTicks()-player[0].trap_start < TIME_BETWEEN_HOLES/2*1000)
+			while (ticks-player[0].trap_start < TIME_BETWEEN_HOLES/2)
+			{
+				SDL_SetSurfaceAlphaMod(black_rect, (SDL_GetTicks()-player[0].trap_start)*255/(TIME_BETWEEN_HOLES/2));
+				printf("%i\n", (SDL_GetTicks()-player[0].trap_start)*255/(TIME_BETWEEN_HOLES/2));
+				SDL_BlitSurface(black_rect, NULL, screen, NULL);
+				SDL_UpdateWindowSurface(main_window);
+				ticks=SDL_GetTicks();
+			}
+			free(black_rect);
+			black_rect=NULL;*/
+			
+			//Если дыр больше одной - при попадании в одну из них, он перемещается в следующую
+			//(по массиву дыр) или в первую, если текущая была последней в массиве
+			//TODO: реализовать выбор между связанными (связанные пары) и последовательными (все подряд, друг за другом) дырами
+			if (holes > 1)
+			{
+				for (int i = 0; i < holes; i++)
+				{
+					if (holes_array[i] == coordinate)
+					{
+						if (i == holes-1)
+							i=-1;
+						player[0].x=holes_array[i+1]/(size_labyrinth_length+1);
+						player[0].y=(player[0].x*size_labyrinth_length-holes_array[i+1])*(-1);
+						//Коррекция подсчёта из-за проблем с округлением
+						if (player[0].y > size_labyrinth_length)
+						{
+							player[0].x++;
+							player[0].y=player[0].y-size_labyrinth_length;
+						}
+						break;
+						//x=c/(l+1)
+						//y=(x*l-c)*(-1)
+					}
+				}
+				
+			}
+			//Если присутствует только одна дыра - игрок будет перемещён в случайное место лабиринта
+			//Если удастся это реализовать без особых накладных расходов
+			//else
+				
+			break;
+		case TRAP:
+			player[0].in_trap=1;
+			//player[0].trap_start=time(NULL);
+			player[0].trap_start=SDL_GetTicks();
+			break;
+		case HOSPITAL:
+			if (player[0].is_wounded)
+				player[0].is_wounded=0;
+			break;
+		case ARSENAL:
+			if (player[0].has_treasure || player[0].has_fake_treasure)
+			{
+				strcpy(drop_take_string, "Throw out treasure and pick up weapon?");
+				if (SDL_ShowMessageBox(&message_drop_take, &button_id) < 0)
+				{
+			        SDL_Log("Error displaying message box");
+			        return;
+			    }
+			    SDL_SetModState(KMOD_NONE);
+				if (button_id == -1)
+				{
+			        SDL_Log("no selection");
+			    }
+			    else
+			    {
+			        if (!button_id)
+			        {
+						//FIXME: при смене сокровища на оружие Арсенал пропадает из лабиринта
+						if (player[0].has_treasure)
+						{
+							labyrinth[coordinate]=TREASURE;
+							player[0].has_treasure=0;
+							player[0].has_weapon=1;
+						}
+						if (player[0].has_fake_treasure)
+						{
+							labyrinth[coordinate]=FAKE_TREASURE;
+							player[0].has_fake_treasure=0;
+							player[0].has_weapon=1;
+						}
+						break;
+					}
+					else
+						break;
+				}
+			}
+			player[0].has_weapon=1;
+			break;
+		default:
+			break;
+	}
+	return;
 }
