@@ -1,7 +1,7 @@
 /*  parameters.c
 
   Лабиринт
-  Version 0.2.4
+  Version 0.2.5
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -25,7 +25,7 @@
 
 #include "includes_macros.h"
 
-int parameters(char *args[], int count, int *length, int *width, int *visual, int *no_walls_removing, int *show_result, int *num_holes)
+int parameters(char *args[], int count, short int *length, short int *width, short int *visual, short int *no_walls_removing, short int *show_result, short int *num_holes)
 {
 	void help(char *args[0], int help_size);
 	int parameter_count=1;

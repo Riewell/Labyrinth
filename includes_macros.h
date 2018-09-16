@@ -1,7 +1,7 @@
 /*  includes_macros.h
 
   Лабиринт
-  Version 0.2.4
+  Version 0.3
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -31,6 +31,14 @@
 //#include "SDL_image.h"
 //#include 
 //#include 
+
+//Разрешение по умолчанию (640x480 при разработке)
+//TODO: увеличить разрешение, в том числе загружаемых изображений
+#define DEFAULT_RES_X 640
+#define DEFAULT_RES_Y 480
+#define FPS 60
+
+#define DEFAULT_SETTINGS_FILE "settings.ini"
 
 #define DEFAULT_LENGTH 11 //FIXME: алгоритм генерации корректно работает только с нечётными числами
 #define DEFAULT_WIDTH 11 //FIXME: алгоритм генерации корректно работает только с нечётными числами
@@ -65,6 +73,14 @@ struct players{
 	unsigned int step_start;
 	//int state; //has treasure | has Ftreasure | in hole (?) | in trap | is wounded
 	//
+};
+
+//Структура для связанного списка настроек, подлежащих перезаписи в файле настроек
+//(из-за изменения игроком во время выполнения программы или из-за повреждения данных в файле)
+struct options_array{
+		char change_option[100];
+		short int change_value;
+		struct options_array *next_option;
 };
 
 //Типы клеток и событий в них:
