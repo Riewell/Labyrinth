@@ -1,7 +1,7 @@
 /*  sdl_main.c
 
   Лабиринт
-  Version 0.2.4
+  Version 0.3
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -27,16 +27,16 @@
 #include "SDL_image.h"
 #include "includes_macros.h"
 
-//TODO: перенести в Настройки!
-#define FPS 60
+void show_labyrinth_in_cmd(int const player_coordinate, const struct players player[], short int const length, short int const width, int const *labyrinth_temp); //для отладки и контроля через консоль
 
-void show_labyrinth_in_cmd(int const player_coordinate, const struct players player[], int const length, int const width, int const *labyrinth_temp); //для отладки и контроля через консоль
+void checking_for_events(SDL_Window *main_window, SDL_Surface *screen, int const coordinate, struct players player[], int *labyrinth, short int const size_labyrinth_length, short int const holes, short int const *holes_array);
 
-void checking_for_events(SDL_Window *main_window, SDL_Surface *screen, int const coordinate, struct players player[], int *labyrinth, int const size_labyrinth_length, int const holes, int const *holes_array);
 int request_for_exit(SDL_Window *main_window, const struct players player[]);
+
 void clean_up_sdl(SDL_Window *main_window);
 
-int sdl_main(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int const holes, int const *holes_array)
+int sdl_main(int *labyrinth, struct players player[], short int const rivals, short int const size_labyrinth_length, short int const size_labyrinth_width, short int const holes, short int const *holes_array, short int window_height, short int window_width, short int fullscreen, short int refresh_rate, short int fps, short int trap_time, short int hole_time, short int speed, short int turn_speed, short int const debug, FILE *settings, char const *settings_filename)
+//~ int sdl_main(int *labyrinth, struct players player[], short int const size_labyrinth_length, short int const size_labyrinth_width, short int const holes, short int const *holes_array)
 {
 	//Запрос на инициализацию поддержки видео и аудио
     if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
@@ -51,8 +51,8 @@ int sdl_main(int *labyrinth, struct players player[], int const size_labyrinth_l
     SDL_GetDesktopDisplayMode(0, &desktop_display0_mode);
     //Перенести настройки разрешения в Настройки
     //TODO: изменить первоначальное разрешение на текущее экранное (fullscreen?)
-    int window_width=640;
-    int window_height=480;
+    //~ int window_width=640;
+    //~ int window_height=480;
     main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, 0);
     //main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_FULLSCREEN_DESKTOP);
     //main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE);
@@ -1286,7 +1286,7 @@ void clean_up_sdl(SDL_Window *main_window)
 	return;
 }
 
-void show_labyrinth_in_cmd(int const player_coordinate, const struct players player[], int const length, int const width, int const *labyrinth_temp)
+void show_labyrinth_in_cmd(int const player_coordinate, const struct players player[], short int const length, short int const width, int const *labyrinth_temp)
 {
 	for (int j = 0; j < width; j++)
 	{

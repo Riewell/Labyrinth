@@ -1,7 +1,7 @@
 /*  checking_in_neighbor_cells.c
 
   Лабиринт
-  Version 0.2.4
+  Version 0.2.5
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -30,7 +30,7 @@
 //Проверка соседних ячеек по  краям лабиринта (заданная ячейка должна находиться около края лабиринта)
 
 //int check_in_neighbor_cells(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth)
-int check_in_neighbor_cells_border(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i) //for debug - вывод переменной "i"
+int check_in_neighbor_cells_border(int x, int y, int const max_distance, short int const size_labyrinth_length, short int const size_labyrinth_width, int const *labyrinth, int i) //for debug - вывод переменной "i"
 {
 	int part_1, part_2, part_3;
 	int distance=1;
@@ -300,7 +300,7 @@ int check_in_neighbor_cells_border(int x, int y, int const max_distance, int con
 //Если в проверяемых ячейках будет обнаружено что-то, кроме заданного в параметрах
 //(через массив cell_types) - производится выход из функции
 //FIXME: сейчас производится проверка на всё, кроме искомого, что может сказываться на производительности
-int check_in_neighbor_cells_around(int x, int y, unsigned short int const direction_mask, int depth, short int *cell_types, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth) //Возможно, будет лучше заменить short int на char?
+int check_in_neighbor_cells_around(int x, int y, unsigned short int const direction_mask, int depth, short int *cell_types, short int const size_labyrinth_length, short int const size_labyrinth_width, int const *labyrinth) //Возможно, будет лучше заменить short int на char?
 {
 	int distance=1;
 	for (int depth_count = 1; depth_count <= depth; depth_count++)
@@ -514,7 +514,7 @@ int check_in_neighbor_cells_around(int x, int y, unsigned short int const direct
 
 //FIXME: проверить необходимсть наличия обращениея к screen (возможно, понадобится для вывода сообщений в дальнейшем)
 
-void checking_for_events(SDL_Window *main_window, SDL_Surface *screen, int const coordinate, struct players player[], int *labyrinth, int const size_labyrinth_length, int const holes, int const *holes_array)
+void checking_for_events(SDL_Window *main_window, SDL_Surface *screen, int const coordinate, struct players player[], int *labyrinth, short int const size_labyrinth_length, short int const holes, short int const *holes_array)
 {
 	char drop_take_string[80];
 	SDL_MessageBoxButtonData drop_take[] = { { 0, 0, "Yes" }, { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 1, "No" }, };

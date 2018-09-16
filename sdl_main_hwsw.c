@@ -1,7 +1,7 @@
 /*  sdl_main_hwsw.c
 
   Лабиринт
-  Version 0.2.4
+  Version 0.3
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -27,16 +27,16 @@
 #include "SDL_image.h"
 #include "includes_macros.h"
 
-//TODO: перенести в Настройки!
-#define FPS 60
+void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players player[], short int const length, short int const width, int const *labyrinth_temp); //для отладки и контроля через консоль
 
-void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players player[], int const length, int const width, int const *labyrinth_temp); //для отладки и контроля через консоль
+void checking_for_events(SDL_Window *main_window, int const coordinate, struct players player[], int *labyrinth, short int const size_labyrinth_length, short int const holes, short int const *holes_array);
 
-void checking_for_events(SDL_Window *main_window, int const coordinate, struct players player[], int *labyrinth, int const size_labyrinth_length, int const holes, int const *holes_array);
 int request_for_exit(SDL_Window *main_window, const struct players player[]);
+
 void clean_up_sdl_hw(SDL_Window *main_window, SDL_Renderer *renderer);
 
-int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyrinth_length, int const size_labyrinth_width, int const holes, int const *holes_array, int requested_mode)
+int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rivals, short int const size_labyrinth_length, short int const size_labyrinth_width, short int const holes, short int const *holes_array, short int window_height, short int window_width, short int fullscreen, short int refresh_rate, short int fps, short int hw_accel, short int vsync, short int trap_time, short int hole_time, short int speed, short int turn_speed, short int const debug, FILE *settings, char const *settings_filename)
+//~ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const size_labyrinth_length, short int const size_labyrinth_width, short int const holes, short int const *holes_array, int requested_mode)
 {
 	//Запрос на инициализацию поддержки видео и аудио
     if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
@@ -48,8 +48,8 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
     SDL_Window *main_window=NULL;
     //Перенести настройки разрешения в Настройки
     //TODO: изменить первоначальное разрешение на текущее экранное (fullscreen?)
-    int window_width=640;
-    int window_height=480;
+    //~ int window_width=640;
+    //~ int window_height=480;
     main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, 0);
     //main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_FULLSCREEN_DESKTOP);
     //main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE);
@@ -60,13 +60,17 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 		return 1;
 	}
 	SDL_Renderer *renderer = NULL;
-	if (requested_mode == 1)
+	//~ if (requested_mode == 1)
+	if (!hw_accel && !vsync)
 		renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_SOFTWARE);
-	else if (requested_mode == 2)
+	//~ else if (requested_mode == 2)
+	else if (!hw_accel && vsync)
 		renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_SOFTWARE || SDL_RENDERER_PRESENTVSYNC);
-	else if (requested_mode == 3)
+	//~ else if (requested_mode == 3)
+	else if (hw_accel && !vsync)
 		renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_ACCELERATED);
-	else if (requested_mode == 4)
+	//~ else if (requested_mode == 4)
+	else if (hw_accel && vsync)
 		renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_ACCELERATED || SDL_RENDERER_PRESENTVSYNC);
 	if (renderer == NULL)
 	{
@@ -1153,8 +1157,9 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], int const size_labyri
 		//char *dir[]={"вверх", "вправо", "вниз", "влево"};
 		//printf("\rcell: %i  x: %i  y: %i  dir: %s  ", player_coordinate, player[0].x, player[0].y, dir[player[0].direction]);
 	}
-	char *mode[]={"software", "software vsync", "hardware", "hardware vsync"};
-	printf("\nКадров: %i Миллисекунд: %i FPS: %.2f mode: %s\n", count, SDL_GetTicks(), (float)count/SDL_GetTicks()*1000, mode[requested_mode-1]);
+	//~ char *mode[]={"software", "software vsync", "hardware", "hardware vsync"};
+	//~ printf("\nКадров: %i Миллисекунд: %i FPS: %.2f mode: %s\n", count, SDL_GetTicks(), (float)count/SDL_GetTicks()*1000, mode[requested_mode-1]);
+	printf("\nКадров: %i Миллисекунд: %i FPS: %.2f hardware: %hi vsync: %hi\n", count, SDL_GetTicks(), (float)count/SDL_GetTicks()*1000, hw_accel, vsync);
 
 	//TODO: перенести в clean_up_sdl()
 	/*SDL_FreeSurface(background);
@@ -1213,7 +1218,7 @@ void clean_up_sdl_hw(SDL_Window *main_window, SDL_Renderer *renderer)
 	return;
 }
 
-void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players player[], int const length, int const width, int const *labyrinth_temp)
+void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players player[], short int const length, short int const width, int const *labyrinth_temp)
 {
 	for (int j = 0; j < width; j++)
 	{

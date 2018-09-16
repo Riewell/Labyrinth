@@ -1,7 +1,7 @@
 /*  labyrinth_generation.c
 
   Лабиринт
-  Version 0.2.4
+  Version 0.2.5
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -26,11 +26,13 @@
 #include "includes_macros.h"
 
 //int check_in_neighbor_cells(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
-int check_in_neighbor_cells_border(int x, int y, int const max_distance, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth, int i); //for debug - вывод переменной "i"
-int check_in_neighbor_cells_around(int x, int y, unsigned short int const direction_mask, int depth, short int *cell_types, int const size_labyrinth_length, int const size_labyrinth_width, int const *labyrinth);
-void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int count, int progress, int length, int width, const int *labyrinth_temp);
+int check_in_neighbor_cells_border(int x, int y, int const max_distance, short int const size_labyrinth_length, short int const size_labyrinth_width, int const *labyrinth, int i); //for debug - вывод переменной "i"
 
-int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int const size_labyrinth_width, int const visual, int const no_walls_removing, int const result, int const rivals, int const holes, int *holes_array, struct players player[])
+int check_in_neighbor_cells_around(int x, int y, unsigned short int const direction_mask, int depth, short int *cell_types, short int const size_labyrinth_length, short int const size_labyrinth_width, int const *labyrinth);
+
+void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int count, int progress, short int length, short int width, const int *labyrinth_temp);
+
+int labyrinth_generation(int *labyrinth, short int const size_labyrinth_length, short int const size_labyrinth_width, short int const visual, short int const no_walls_removing, short int const result, short int const rivals, short int const holes, short int *holes_array, struct players player[])
 {
 	//Массив с типами клеток лабиринта (для check_in_neighbor_cells_around() )
 	short int *cell_types=(short int*)calloc(END_OF_CT_ENUM, sizeof( short int ));
@@ -324,7 +326,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	//Клетки с полученными координатами должны быть пусты и находиться у одной из крайних стен лабиринта
 	//(внутри лабиринта, не выпадая на крайние стены)
 	time_t start_generation=time(NULL); //Время начала генерации участников
-	int *rivals_coordinates=(int*)calloc(rivals*2+2, sizeof( int )); //временный массив координат участников и выхода из лабиринта
+	short int *rivals_coordinates=(short int*)calloc(rivals*2+2, sizeof( short int )); //временный массив координат участников и выхода из лабиринта
 	if (rivals_coordinates == NULL)
 		return 1;
 	for (int i=0; i < rivals+1; i++) //Генерация координат участников и выхода
@@ -746,7 +748,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	//(2 клетки вокруг для всех событий и 3 - для события Клад)
 	
 	//Временный массив координат событий лабиринта (x, y, исходное значение ячейки на случай, если произойдёт сброс генерации)
-	int *events_coordinates=(int*)calloc((END_OF_CT_ENUM-EXIT-1)*3, sizeof( int ));
+	short int *events_coordinates=(short int*)calloc((END_OF_CT_ENUM-EXIT-1)*3, sizeof( short int ));
 	if (events_coordinates == NULL)
 		return 1;
 	int empty_cell;
@@ -1000,7 +1002,7 @@ int labyrinth_generation(int *labyrinth, int const size_labyrinth_length, int co
 	return 0;
 }
 
-void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int count, int progress, int length, int width, const int *labyrinth_temp)
+void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int count, int progress, short int length, short int width, const int *labyrinth_temp)
 {
 	double progress_print=width*length/2;
 	progress_print=progress/progress_print;
