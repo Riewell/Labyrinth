@@ -1,7 +1,7 @@
 /*  help.c
 
   Лабиринт
-  Version 0.2.2
+  Version 0.3.1
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -26,37 +26,52 @@
 #include <stdio.h>
 #include <string.h>
 
-void help(char *args[0], int help_size)
+//~ void help(char *args[0], int help_size)
+void help(char *program_title, int help_size)
 {
-	int line_length=strlen(args[0]);
+	int line_length=strlen(program_title);
 	int indent=0;
 	
 	//Вывод форматированной краткой справки (для параметра "-h")
-	char *help_strings[]={"[-l ЗНАЧЕНИЕ|--length ЗНАЧЕНИЕ]",
+	//Последняя строка ("[-h|--help]") обрабатывается и выводится отдельно, а также служит признаком конца массива
+	char *help_strings[]={"[-a ЗНАЧЕНИЕ|--hw-accel ЗНАЧЕНИЕ]",
+						"[-b|--show-building]",
+						"[-c ЗНАЧЕНИЕ|--conf ЗНАЧЕНИЕ]",
+						"[-d|--debug]",
+						"[-f ЗНАЧЕНИЕ|--fps ЗНАЧЕНИЕ]",
+						"[-F|--fullscreen]",
+						"[-H ЗНАЧЕНИЕ|--screen-height ЗНАЧЕНИЕ]",
+						"[-l ЗНАЧЕНИЕ|--length ЗНАЧЕНИЕ]",
+						"[-n|--no-wall-removing]",
+						"[-N [ЗНАЧЕНИЕ] |--new-conf [ЗНАЧЕНИЕ] ]",
+						"[-p ЗНАЧЕНИЕ|--pits ЗНАЧЕНИЕ]",
+						"[-r ЗНАЧЕНИЕ|--rivals ЗНАЧЕНИЕ]",
+						"[-R|--result]",
+						"[-s ЗНАЧЕНИЕ|--speed ЗНАЧЕНИЕ]",
+						"[-S ЗНАЧЕНИЕ|--speed-turn ЗНАЧЕНИЕ]",
+						"[-t ЗНАЧЕНИЕ|--trap-time ЗНАЧЕНИЕ]",
+						"[-T ЗНАЧЕНИЕ|--pit-time ЗНАЧЕНИЕ]",
+						"[-v ЗНАЧЕНИЕ|--vsync ЗНАЧЕНИЕ]",
 						"[-w ЗНАЧЕНИЕ|--width ЗНАЧЕНИЕ]",
-						"[-v|--visual]",
-						"[-nwr|--no-wall-removing]",
-						"[-r|--result]",
+						"[-W ЗНАЧЕНИЕ|--screen-width ЗНАЧЕНИЕ]",
+						"[--sdl12]",
 						"[-h|--help]"};
-	printf("\n  Использование: \n\n%s", args[0]);
+	printf("\n  Использование: \n\n%s", program_title);
 	//Проверка возможности использования отступа для новых строк шириной в название программы
 	//Если название программы и строка помощи больше, чем 80 (ширина термина+пробел) - устанавливается значение по умолчанию (10)
 	//Последнюю строку массива ("[-h|--help]") не обрабатываем - она будет выводиться в отдельной строке
-	for (int i = 0; i < 5; i++)
+	int i=0;
+	while (strncmp(help_strings[i], "[-h", 3))
 	{
 		if (line_length+strlen(help_strings[i]) < 79)
 			indent=line_length+1;
 		else
 			indent=10;
+		i++;
 	}
-	
-	for (int i = 0; i < 6; i++) //FIXME: задать конечное значение переменной - количеством элементов (строк) в массиве
+	i=0;
+	while (strncmp(help_strings[i], "[-h", 3))
 	{
-		//Для вывода последней строки помощи ("[-h|--help]") - отдельная строка
-		if (i==5)
-		{
-			printf("\n\n%s", args[0]);
-		}
 		//Если название программы и первой строки справки меньше 80 (ширина терминала+пробел; задать иначе (узнать из окружения)?),
 		//то первая строка справки выводится в той же строке
 		//FIXME: неверно учитывается размер кириллических символов!
@@ -69,12 +84,24 @@ void help(char *args[0], int help_size)
 		else
 		{
 			printf("\n%*s%s", indent, " ", help_strings[i]);
-			line_length=strlen(help_strings[i]);
+			line_length=strlen(help_strings[i])+indent;
 		}
+		i++;
+	}
+	//Последняя строка краткой справки ("[-h|--help]") выводится на отдельную строку
+	printf("\n\n%s", program_title);
+	if (strlen(program_title)+strlen(help_strings[i]) < 79)
+	{
+		printf(" %s", help_strings[i]);
+	}
+	else
+	{
+		printf("\n%*s%s", indent, " ", help_strings[i]);
 	}
 	printf("\n\n");
 
 	//Если указан параметр "--help" - дополнительно выводится полная справка
+	//TODO: перенести данные из внешнего файла сюда
 	if (help_size > 3)
 	{
 		FILE *help_file=NULL;

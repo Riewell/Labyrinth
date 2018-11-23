@@ -1,7 +1,7 @@
 /*  settings.c
 
   Лабиринт
-  Version 0.3
+  Version 0.3.1
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -74,7 +74,7 @@ int set_options(FILE *settings, char *settings_filename, short int *window_heigh
 	free(temp_string_1);
 	if (fseek(settings, 0, SEEK_SET))
 	{
-		perror("Не получается восстановть файл настроек");
+		perror("Не получается восстановить файл настроек");
 		return 1;
 	}
 	struct options_array *options_arrayPtr=NULL;
@@ -386,12 +386,15 @@ int set_options(FILE *settings, char *settings_filename, short int *window_heigh
 				}
 				*rivals=value;
 			}
-			//Параметр "Holes" указывает на количество дыр в полу
+			//Параметр "Pits" указывает на количество дыр в полу
 			//TODO: пока все дыры циклически связаны между собой
 			//TODO: надо сделать возможность создания нескольких несвязанных между собой пар дыр
 			//Пока дыры связаны циклически - проверка на их чётное количество не производится
 			//Значения меньше нуля будут изменены на значение по умолчанию
-			else if (!strcmp("Holes", option))
+			//FIXME: максимальное количество пока не ограничено!
+			//TODO: Пока не найден способ без особых накладных расходов перемещать участника
+			//в случайное место лабиринта - количество дыр должно быть или больше 1, или равно 0
+			else if (!strcmp("Pits", option))
 			{
 				if (value < 0)
 				{
@@ -399,10 +402,16 @@ int set_options(FILE *settings, char *settings_filename, short int *window_heigh
 					if (next_element(&options_arrayPtr, option, value))
 						return 2;
 				}
+				if (value == 1) //см. TODO выше
+				{
+					value=2;
+					if (next_element(&options_arrayPtr, option, value))
+						return 2;
+				}
 				*holes=value;
 			}
 			//Время, проведённое в ловушке или потраченное при перемещении между дырами
-			//в файле настройки указывается с секундах,
+			//в файле настройки указывается в секундах,
 			//поскольку SDL API воспринимает миллисекунды - производится умножение на 1000
 			//Ограничение в 30 секунд связано с максимально возможным значением переменной типа short int - 32767
 			//Отрицательные значения будут заменены на значения по умолчанию
@@ -514,7 +523,7 @@ int set_options(FILE *settings, char *settings_filename, short int *window_heigh
 		if (fclose(settings))
 		{
 			perror("Не получается записать измененния в файл настроек");
-			puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+			puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 			return 1;
 		}
 	}
@@ -546,13 +555,13 @@ int change_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 								
 								"#Old version of software acceleration without VSync and with some bugs\n#Set to 1 for this or 0 for new version\n#If this option is set to 1, then \"Hardware_Acceleration\" and \"VSync\"\n#options will be ignored\n"};
 		
-		char *game_options[]={"Labyrinth_length", "Labyrinth_width", "Not_Remove_Walls", "Rivals", "Holes", "Time_in_trap", "Time_between_holes", "Speed_move", "Speed_turn"};
+		char *game_options[]={"Labyrinth_length", "Labyrinth_width", "Not_Remove_Walls", "Rivals", "Pits", "Time_in_trap", "Time_between_holes", "Speed_move", "Speed_turn"};
 		short int game_values[]={DEFAULT_LENGTH, DEFAULT_WIDTH, 0, RIVALS, HOLES, TIME_IN_TRAP/1000, TIME_BETWEEN_HOLES/1000, SPEED_MOVE, SPEED_TURN};
 		char *game_comments[]={"#Something between 5-1000\n", "",
 			
 								"#Either 1 (no walls will be removing) or 0\n#(some walls will be remove that cause to create potentially cycling labyrinth)\n",
 								"#Total number of rivals (including player)\n",
-								"#Total number of holes in floor\n#(for fast travel to far end of labyrinth. Or, maybe to neighbour cell)",
+								"#Total number of pits in floor\n#(for fast travel to far end of labyrinth. Or, maybe to neighbour cell)\n#Either 0 (no pits at all), either something greater 1\n",
 								"#Time in seconds, no more than 30\n", "",
 								
 								"#Time in milliseconds (lesser is faster)\n", ""};
@@ -639,7 +648,7 @@ int change_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 		}
 		free(error_message);
 		error_message=NULL;
-		puts("Создание резервной копии файла настороек");
+		puts("Создание резервной копии файла настроек");
 		if (rename(settings_filename, backup_filename))
 		{
 			perror("Не могу сохранить резервную копию файла настроек");
@@ -649,14 +658,14 @@ int change_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 		if (!(settings = fopen(backup_filename, "r")))
 		{
 			perror("Не получается записать измененния в файл настроек");
-			puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+			puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 			return 1;
 		}
 		FILE *tmp;
 		if (!(tmp = fopen(settings_filename, "w")))
 		{
 			perror("Не получается записать измененния в файл настроек");
-			puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+			puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 			fclose(settings);
 			return 1;
 		}
@@ -731,7 +740,7 @@ int change_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 		if (fclose(tmp))
 		{
 			perror("Не получается записать измененния в файл настроек");
-			puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+			puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 			return 1;
 		}
 		//Если в списке настроек остались какие-то незаписанные настройки,
@@ -748,7 +757,7 @@ int change_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 			if (fclose(settings))
 			{
 				perror("Не получается записать измененния в файл настроек");
-				puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+				puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 				return 1;
 			}
 		}
@@ -781,7 +790,7 @@ int repair_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 	}
 	free(error_message);
 	error_message=NULL;
-	puts("Создание резервной копии для резервной копии файла настороек");
+	puts("Создание резервной копии для резервной копии файла настроек");
 	if (rename(backup_filename, backup2_filename))
 	{
 		perror("Не получается сохранить предыдущую резервную копию файла настроек");
@@ -792,24 +801,24 @@ int repair_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 	//~ {
 		//~ perror("Ошибка удаления резервной копии\n settings.ini.bak");
 	//~ }
-	puts("Создание резервной копии файла настороек");
+	puts("Создание резервной копии файла настроек");
 	if (rename(settings_filename, backup_filename))
 	{
 		perror("Не получается сохранить резервную копию файла настроек");
-		puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+		puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 		return 1;
 	}
 	if (!(settings = fopen(backup_filename, "r")))
 	{
-		perror("Не получается восстановть файл настроек");
-		puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+		perror("Не получается восстановить файл настроек");
+		puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 		return 1;
 	}
 	FILE *tmp;
 	if (!(tmp = fopen(settings_filename, "w")))
 	{
-		perror("Не получается восстановть файл настроек");
-		puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+		perror("Не получается восстановить файл настроек");
+		puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 		fclose(settings);
 		return 1;
 	}
@@ -876,14 +885,14 @@ int repair_settings_file(struct options_array *options_arrayPtr, FILE *settings,
 	}
 	if (fclose(tmp))
 	{
-		perror("Не получается восстановть файл настроек");
-		puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+		perror("Не получается восстановить файл настроек");
+		puts("Проверьте права доступа к каталогу и файлу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 		return 1;
 	}
 	if (fclose(settings))
 	{
-		perror("Не получается восстановть файл настроек");
-		puts("Проверьте права доступа к каталогу с настройками игры и свободное место на диске с разделом, содержащим этот каталог");
+		perror("Не получается восстановить файл настроек");
+		puts("Проверьте права доступа к каталогу си файлу  настройками игры и свободное место на диске с разделом, содержащим этот каталог");
 		return 1;
 	}
 	return 0;
@@ -954,7 +963,7 @@ int search_in_section(struct options_array *sectionPtr, FILE *settings, FILE *tm
 			//"Настройка = Значение"
 			//Настройка = Значение ;"
 			//В случае совпадения с одним их вариантов первое слово строки (со второго символа -
-			//без знака '#') сравнивается со списком настороек для восстановления
+			//без знака '#') сравнивается со списком настроек для восстановления
 			//Если совпадения найдены - будет записан изменённый (восстановленный) вариант, если нет - считанный из файла
 			success=sscanf(temp_string_1, "%s %s %s %s", temp_string_11, temp_string_12, temp_string_13, temp_string_14);
 			if ((success < 3) \
