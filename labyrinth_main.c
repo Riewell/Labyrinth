@@ -1,7 +1,7 @@
 /*  labyrinth_main.c
 
   Лабиринт
-  Version 0.3
+  Version 0.3.1
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -25,9 +25,12 @@
 
 #include "includes_macros.h"
 
+void help(char *program_title, int help_size);
+int change_settings_file(struct options_array *options_arrayPtr, FILE *settings, char *settings_filename);
+
 int set_options(FILE *settings, char *settings_filename, short int *window_height, short int *window_width, short int *fullscreen, short int *refresh_rate, short int *fps, short int *hw_accel, short int *vsync, short int *sdl_12, short int *size_labyrinth_length, short int *size_labyrinth_width, short int *no_walls_removing, short int *rivals, short int *holes, short int *trap_time, short int *hole_time, short int *speed, short int *turn_speed, short int *debug, short int *visual, short int *result);
 
-int parameters(char *args[], int count, short int *length, short int *width, short int *visual, short int *no_walls_removing, short int *show_result, short int *num_holes);
+int parameters(char *args[], int count, short int *window_height, short int *window_width, short int *fullscreen, short int *refresh_rate, short int *fps, short int *hw_accel, short int *vsync, short int *sdl_12, short int *size_labyrinth_length, short int *size_labyrinth_width, short int *no_walls_removing, short int *rivals, short int *holes, short int *trap_time, short int *hole_time, short int *speed, short int *turn_speed, short int *debug, short int *visual, short int *result);
 
 int labyrinth_generation(int *labyrinth, short int const size_labyrinth_length, short int const size_labyrinth_width, short int const visual, short int const no_walls_removing, short int const result, short int const rivals, short int const holes, short int *holes_array, struct players player[]);
 
@@ -41,12 +44,19 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 
 int main(int argc, char *argv[])
 {
-	//~ for (i = 0; i < dimensions; i++)
-	//~ {
-		//~ floor_width[i]=rand()%DEFAULT_MAX_WIDTH+DEFAULT_MIN_WIDTH;
-		//~ floor_length[i]=rand()%DEFAULT_MAX_LENGTH+DEFAULT_MIN_LENGTH;
-		//~ floors[i]=rand()%DEFAULT_MAX_FLOORS+DEFAULT_MIN_FLOORS;
-	//~ }
+	//Проверка на запрос вызова справки, если запрошена - вызов справочной информации и выход из программы
+	if (argc > 1)
+	{
+		for (int i = 1; i < argc; i++)
+		{
+			if (!strcmp("-h", argv[i]) || !strcmp("--help", argv[i]))
+			{
+				char *program_title=argv[0];
+				help(program_title, strlen(argv[i]));
+				return 0;
+			}
+		}
+	}
 	
 	//Инициализация основных переменных
 	//Значения по умолчанию - в файле includes_macros.h
@@ -54,8 +64,8 @@ int main(int argc, char *argv[])
 	//VIDEO
 	//Данные параметры (особенно refresh_rate) скорее всего, будут перезаписаны
 	//после загрузки файла настроек и/или инициализации SDL
-	short int window_height=DEFAULT_RES_Y;
-	short int window_width=DEFAULT_RES_X;
+	short int window_height=DEFAULT_RES_Y; //возможно, стоит вернуть на int для покрытия больших разрешений
+	short int window_width=DEFAULT_RES_X; //возможно, стоит вернуть на int для покрытия больших разрешений
 	short int fullscreen=0;
 	short int refresh_rate=0;
 	short int fps=FPS; //органичение на количество обрабатываемых SDL кадров в секунду
@@ -84,9 +94,11 @@ int main(int argc, char *argv[])
 	short int debug=0; //отображение лабиринта в консоли/терминале во время игры
 	short int visual=0; //для отладки - выводить скелет лабиринта (по умолчанию - нет) или да
 	short int result=0; //отображать окончательный результат или нет (по умолчанию - нет)
-	//Считывани параметров из файла настроек
+	
+	//Считывание параметров из файла настроек
 	//Сначала производится проверка на присутствие среди параметров запуска
-	//запроса на использование другого файла с настройками
+	//запроса на создание/использование другого файла с настройками
+	//или перезаписи существующего значениями по умолчанию
 	FILE *settings=NULL;
 	char *settings_filename=NULL;
 	if (argc > 1)
@@ -115,6 +127,36 @@ int main(int argc, char *argv[])
 					printf("Будет использоваться файл по умолчанию (\"%s\")\n", DEFAULT_SETTINGS_FILE);
 				}
 			}
+			//Если требуется создать новый файл настроек - будут использованы имя и путь, указанные пользователем
+			//Если первым символом в пути/имени будет "-" - оно будет считаться одним из параметров запуска и проигнорировано
+			//(будет использоваться файл по умолчанию)
+			if (!strcmp("--new-conf", argv[i]) || !strcmp("-N", argv[i]))
+			{
+				if (((i+1) < argc) && strncmp("-", argv[i+1], 1))
+				{
+					int filename_length=strlen(argv[i+1]);
+					settings_filename=calloc(filename_length+1, 1);
+					snprintf(settings_filename, filename_length+1, "%s", argv[i+1]);
+					printf("Создаю новый файл настроек \"%s\"...\n", settings_filename);
+					if (change_settings_file(NULL, settings, settings_filename))
+					{
+						printf("Будет использоваться файл по умолчанию (\"%s\")\n", DEFAULT_SETTINGS_FILE);
+						free(settings_filename);
+						settings_filename=NULL;
+					}
+				}
+				//Если не указан новый файл для создания настроек - будет перезаписан существующий файл
+				//TODO: обеспечить резервное копирование для таких случаев
+				else
+				{
+					settings_filename=calloc(strlen(DEFAULT_SETTINGS_FILE)+1, 1);
+					snprintf(settings_filename, strlen(DEFAULT_SETTINGS_FILE)+1, "%s", DEFAULT_SETTINGS_FILE);
+					puts("Не указан файл настроек!");
+					printf("Будет перезаписан файл по умолчанию (\"%s\")\n", settings_filename);
+					if (change_settings_file(NULL, settings, settings_filename))
+						return 1;
+				}
+			}
 		}
 	}
 	if (!settings_filename)
@@ -129,12 +171,11 @@ int main(int argc, char *argv[])
 	if (success == 1 || success == 2)
 		return success;
 	//Просмотр параметров запуска, если они есть
-	//Если среди параметров есть требующие завершения работы после их обработки
-	//(например, вызов справки) - производится проверка значения возврата из функции
-	//и, если требуется, завершение работы программы
+	//В случае задания взаимоисключающих параметров или их дублирования
+	//будет учтён последний указанный параметр/последнее значение
 	if (argc > 1)
 	{
-		if (parameters(argv, argc, &size_labyrinth_length, &size_labyrinth_width, &visual, &no_walls_removing, &result, &holes))
+		if (parameters(argv, argc, &window_height, &window_width, &fullscreen, &refresh_rate, &fps, &hw_accel, &vsync, &sdl_12, &size_labyrinth_length, &size_labyrinth_width, &no_walls_removing, &rivals, &holes, &trap_time, &hole_time, &speed, &turn_speed, &debug, &visual, &result))
 			return 0;
 	}
 	//Инициализация массива лабиринта

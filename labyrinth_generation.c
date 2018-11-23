@@ -1,7 +1,7 @@
 /*  labyrinth_generation.c
 
   Лабиринт
-  Version 0.2.5
+  Version 0.2.6
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -790,7 +790,7 @@ int labyrinth_generation(int *labyrinth, short int const size_labyrinth_length, 
 			//которого не может быть ни у чего, кроме крайних стен и выхода
 			if (time(NULL)-start_generation > 10)
 			{
-				printf ("Событие %i не установлено (x=%i y=%i)\n", i+EXIT+1, x, y);
+				printf("Событие %i не установлено (x=%i y=%i)\n", i+EXIT+1, x, y);
 				puts("Откат к простой расстановке");
 				system("sleep 1");
 				for (int break_count = 0; break_count < (END_OF_CT_ENUM-EXIT-1)*3; break_count=break_count+3)
@@ -1014,7 +1014,7 @@ void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int c
 		//~ {
 			//~ for (int j_walls = 0; j_walls < (length+2); j_walls++)
 			//~ {
-				//~ printf ("%s", " X");
+				//~ printf("%s", " X");
 			//~ }
 			//~ puts("");
 			//~ continue;
@@ -1022,7 +1022,7 @@ void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int c
 		for (int k = 0; k < length; k++)
 		{
 			//~ if (k == 0)
-				//~ printf ("%s", " X");
+				//~ printf("%s", " X");
 			//0 - пустая клетка, 1 - стена, 2 - будущая пустая клетка, 3 - один из соперников, 4 - игрок, 5 - выход
 			//6 - клад, 7 - ложный клад, 8 - дыра, 9 - ловушка, 10 - госпиталь, 11 - арсенал
 			if (!labyrinth_temp[(j*length)+k])
@@ -1050,7 +1050,7 @@ void show_labyrinth_in_progress(int x, int y, char *info_string, int info, int c
 			if (labyrinth_temp[(j*length)+k] == ARSENAL)
 				printf("%s", " A");
 			//~ if (k == (length-1))
-				//~ printf ("%s", " X");
+				//~ printf("%s", " X");
 		}
 		if (j == 0)
 			printf("  %s%i %s%i", "x=", x, "y=", y);

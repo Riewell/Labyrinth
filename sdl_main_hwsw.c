@@ -1,7 +1,7 @@
 /*  sdl_main_hwsw.c
 
   Лабиринт
-  Version 0.3
+  Version 0.3.1
 
   Copyright 2017 Konstantin Zyryanov <post.herzog@gmail.com>
   
@@ -29,7 +29,7 @@
 
 void show_labyrinth_in_cmd_hw(int const player_coordinate, const struct players player[], short int const length, short int const width, int const *labyrinth_temp); //для отладки и контроля через консоль
 
-void checking_for_events(SDL_Window *main_window, int const coordinate, struct players player[], int *labyrinth, short int const size_labyrinth_length, short int const holes, short int const *holes_array);
+void checking_for_events(SDL_Window *main_window, SDL_Surface *screen, int const coordinate, struct players player[], int *labyrinth, short int const size_labyrinth_length, short int const holes, short int const *holes_array);
 
 int request_for_exit(SDL_Window *main_window, const struct players player[]);
 
@@ -46,13 +46,265 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
     }
     //Создание основного окна
     SDL_Window *main_window=NULL;
-    //Перенести настройки разрешения в Настройки
-    //TODO: изменить первоначальное разрешение на текущее экранное (fullscreen?)
-    //~ int window_width=640;
-    //~ int window_height=480;
-    main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, 0);
-    //main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_FULLSCREEN_DESKTOP);
-    //main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE);
+    //Получение значений текущего режима экрана (дисплея) №0
+    SDL_DisplayMode desktop_display0_mode;
+    SDL_GetDesktopDisplayMode(0, &desktop_display0_mode);
+    //Если приложение должно запускаться в полноэкранном режиме - производится проверка
+    //на доступность рарзешения экрана, подходящего для заданных значений высоты и ширины окна
+    if (fullscreen)
+    {
+		SDL_DisplayMode other_display_mode;
+		int modes_number=SDL_GetNumDisplayModes(0);
+		unsigned char *suited_dm=(unsigned char*)calloc(modes_number+1, sizeof( unsigned char ));
+		if (suited_dm)
+		{
+			//Вычисление количества доступных видеорежимов для заданного разрешения
+			for (int i = 0; i < modes_number; i++)
+			{
+				SDL_GetDisplayMode(0, i, &other_display_mode);
+				if (other_display_mode.h == window_height && other_display_mode.w == window_width)
+				{
+					suited_dm[0]++;
+					suited_dm[(int)suited_dm[0]]=i;
+				}
+			}
+			//Если заданные значения не соответствуют ни одному из доступных видеорежимов -
+			//производится попытка поиска наиболее близкого подходящего видеорежима
+			if (!(int)suited_dm[0])
+			{
+				puts("Указанное разрешение не поддерживается используемым видеоадаптером.");
+				SDL_DisplayMode whished_display_mode;
+				whished_display_mode.h=window_height;
+				whished_display_mode.w=window_width;
+				if (SDL_GetClosestDisplayMode(0, &whished_display_mode, &other_display_mode))
+				{
+					whished_display_mode.h=other_display_mode.h;
+					whished_display_mode.w=other_display_mode.w;
+					for (int i = 0; i < modes_number; i++)
+					{
+						SDL_GetDisplayMode(0, i, &other_display_mode);
+						if (other_display_mode.h == whished_display_mode.h && other_display_mode.w == whished_display_mode.w)
+						{
+							suited_dm[0]++;
+							suited_dm[(int)suited_dm[0]]=i;
+						}
+					}
+					if ((int)suited_dm[0] == 1)
+						printf("Будет использовано наиболее близкое подходящее разрешение: %ix%i.\n", whished_display_mode.w, whished_display_mode.h);
+				}
+				//Если автоматический поиск наиболее подходящего видеорежима не удался -
+				//будет произведён отбор из доступных
+				//Сначала производится проверка на размеры окна
+				//(они должны быть не более тех, что были заданы при запуске),
+				//затем - на глубину цветопередачи и значение частоты обновления экрана
+				//(будет выбран режим, у которого они больше при одинаковых размерах окна)
+				else
+				{
+					short int current_refresh_rate=0;
+					short int current_bpp=0;
+					for (int i = 0; i < modes_number; i++)
+					{
+						SDL_GetDisplayMode(0, i, &other_display_mode);
+						if (other_display_mode.h <= window_height && other_display_mode.w <= window_width)
+						{
+							if ((SDL_BITSPERPIXEL(other_display_mode.format) >= current_bpp) \
+							&& (other_display_mode.refresh_rate >= current_refresh_rate))
+							{
+								current_refresh_rate=other_display_mode.refresh_rate;
+								current_bpp=SDL_BITSPERPIXEL(other_display_mode.format);
+								suited_dm[0]++;
+								suited_dm[(int)suited_dm[0]]=i;
+							}
+						}
+					}
+				}
+			}
+			//Если найдено несколько подходящих видеорежимов -
+			//будет выбран такой, у которого больше глубина цветопередачи, частота обновления экрана и разрешение (размеры окна)
+			//(если они также совпадают - будет выбран первый доступный видеорежим)
+			if ((int)suited_dm[0] > 1)
+			{
+				char check=1;
+				short int max_num=0;
+				short int max_num_2=0;
+				//Описание структуры для перечисления доступных видеорежимов
+				struct suited_modes{
+					unsigned char number; //номер видеорежима, выданный SDL
+					short int height; //высота окна
+					short int width; //цирина окна
+					short int bpp; //глубина цветопередачи
+					short int refresh_rate; //частота обновления экрана
+					struct suited_modes *next_mode; //указатель на следующуий элемент (структуру)
+				};
+				struct suited_modes *video_modesPtr=NULL;
+				struct suited_modes *video_modes_lastPtr=NULL;
+				struct suited_modes *video_modes_previousPtr=NULL;
+				video_modesPtr=calloc(1, sizeof(struct suited_modes));
+				video_modes_lastPtr=video_modesPtr;
+				video_modes_previousPtr=video_modesPtr;
+				if (!video_modesPtr)
+					check=0;
+				if (check)
+				{
+					//Заполнение структур значениями отобранных видеорежимов
+					for (int i = 0; i < (int)suited_dm[0]; i++)
+					{
+						SDL_GetDisplayMode(0, (int)suited_dm[i+1], &other_display_mode);
+						video_modes_previousPtr->number=suited_dm[i+1];
+						video_modes_previousPtr->height=other_display_mode.h;
+						video_modes_previousPtr->width=other_display_mode.w;
+						video_modes_previousPtr->bpp=SDL_BITSPERPIXEL(other_display_mode.format);
+						video_modes_previousPtr->refresh_rate=other_display_mode.refresh_rate;
+						video_modes_lastPtr=calloc(1, sizeof(struct suited_modes));
+						if (!video_modes_lastPtr)
+						{
+							check=0;
+							break;
+						}
+						video_modes_previousPtr->next_mode=video_modes_lastPtr;
+						video_modes_previousPtr=video_modes_lastPtr;
+					}
+				}
+				if (check)
+				{
+					//Отбор видеорежимов с наибольшей глубиной цветопередачи
+					//Остальные видеорежимы будут отброшены и в дальнейших отборах участвовать не будут
+					max_num=video_modesPtr->bpp;
+					video_modes_lastPtr=video_modesPtr;
+					//~ for (int i = 0; i < (int)suited_dm[0]; i++)
+					while (video_modes_lastPtr)
+					{
+						if (video_modes_lastPtr->bpp > max_num)
+							max_num=video_modes_lastPtr->bpp;
+						video_modes_lastPtr=video_modes_lastPtr->next_mode;
+					}
+					video_modes_previousPtr=video_modesPtr;
+					video_modes_lastPtr=video_modesPtr;
+					//~ for (int i = 0; i < (int)suited_dm[0]; i++)
+					while (video_modes_lastPtr)
+					{
+						if (video_modes_lastPtr->bpp != max_num)
+						{
+							if (video_modes_lastPtr == video_modesPtr)
+								video_modesPtr=video_modesPtr->next_mode;
+							video_modes_previousPtr->next_mode=video_modes_lastPtr->next_mode;
+						}
+						if (video_modes_previousPtr != video_modes_lastPtr)
+							video_modes_previousPtr=video_modes_lastPtr;
+						video_modes_lastPtr=video_modes_lastPtr->next_mode;
+					}
+					//Отбор видеорежимов с наибольшей частотой обновления экрана
+					//Остальные видеорежимы будут отброшены и в дальнейших отборах участвовать не будут
+					max_num=video_modesPtr->refresh_rate;
+					video_modes_lastPtr=video_modesPtr;
+					while (video_modes_lastPtr)
+					{
+						if (video_modes_lastPtr->refresh_rate > max_num)
+							max_num=video_modes_lastPtr->refresh_rate;
+						video_modes_lastPtr=video_modes_lastPtr->next_mode;
+					}
+					video_modes_previousPtr=video_modesPtr;
+					video_modes_lastPtr=video_modesPtr;
+					while (video_modes_lastPtr)
+					{
+						if (video_modes_lastPtr->refresh_rate != max_num)
+						{
+							if (video_modes_lastPtr == video_modesPtr)
+								video_modesPtr=video_modesPtr->next_mode;
+							video_modes_previousPtr->next_mode=video_modes_lastPtr->next_mode;
+						}
+						if (video_modes_previousPtr != video_modes_lastPtr)
+							video_modes_previousPtr=video_modes_lastPtr;
+						video_modes_lastPtr=video_modes_lastPtr->next_mode;
+					}
+					//Отбор видеорежимов с наибольшм разрешением (размером окна)
+					//Остальные видеорежимы будут отброшены
+					max_num=video_modesPtr->height;
+					max_num_2=video_modesPtr->width;
+					video_modes_lastPtr=video_modesPtr;
+					while (video_modes_lastPtr)
+					{
+						if ((video_modes_lastPtr->height >= max_num) && (video_modes_lastPtr->width >= max_num_2))
+						{
+							max_num=video_modes_lastPtr->height;
+							max_num_2=video_modes_lastPtr->width;
+						}
+						video_modes_lastPtr=video_modes_lastPtr->next_mode;
+					}
+					video_modes_previousPtr=video_modesPtr;
+					video_modes_lastPtr=video_modesPtr;
+					while (video_modes_lastPtr)
+					{
+						if ((video_modes_lastPtr->height != max_num) && (video_modes_lastPtr->width != max_num_2))
+						{
+							if (video_modes_lastPtr == video_modesPtr)
+								video_modesPtr=video_modesPtr->next_mode;
+							video_modes_previousPtr->next_mode=video_modes_lastPtr->next_mode;
+						}
+						if (video_modes_previousPtr != video_modes_lastPtr)
+							video_modes_previousPtr=video_modes_lastPtr;
+						video_modes_lastPtr=video_modes_lastPtr->next_mode;
+					}
+				}
+				//Если предыдущие отборы прошли успешно
+				//(то есть память для связанных списков структур была успешно выделена),
+				//то производится запись номера оставшегося видеорежима
+				//(или первого из оставшихся - на данный момент они должны быть практически одинаковыми)
+				//Иначе указывается, что подходящий видеорежим найден не был
+				if (!check)
+					suited_dm[0]=0;
+				else
+				{
+					suited_dm[0]=1;
+					suited_dm[1]=video_modesPtr->number;
+				}
+				SDL_GetDisplayMode(0, (int)suited_dm[1], &other_display_mode);
+				puts("Найдено несколько подходящих видеорежимов.");
+				printf("Будет использовано наиболее близкое подходящее разрешение: %ix%i\n", other_display_mode.w, other_display_mode.h);
+			}
+			//Если подходящий видеорежим так и не был найден - будет использоваться
+			//текущее разрешение операционной системы (разрешение рабочего стола)
+			if (!(int)suited_dm[0])
+			{
+				printf("Будет использовано разрешение экрана, заданное операционной системой:  %ix%i\n", desktop_display0_mode.w, desktop_display0_mode.h);
+				window_height=desktop_display0_mode.h;
+				window_width=desktop_display0_mode.w;
+				refresh_rate=desktop_display0_mode.refresh_rate;
+				main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_FULLSCREEN_DESKTOP);
+			}
+			//Если подходящий видеорежим найден - будет использоваться именно он
+			SDL_GetDisplayMode(0, (int)suited_dm[1], &other_display_mode);
+			window_height=other_display_mode.h;
+			window_width=other_display_mode.w;
+			refresh_rate=other_display_mode.refresh_rate;
+			main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_FULLSCREEN);
+			free(suited_dm);
+			suited_dm=NULL;
+		}
+		//Если не удалось выделить память для поиска поддерживаемых видеорежимов -
+		//будет использоваться текущее разрешение операционной системы (разрешение рабочего стола)
+		else
+		{
+			puts("Ошибка памяти при установке разрешения экрана.");
+			printf("Будет использовано разрешение экрана, заданное операционной системой:  %ix%i\n", desktop_display0_mode.w, desktop_display0_mode.h);
+			window_height=desktop_display0_mode.h;
+			window_width=desktop_display0_mode.w;
+			refresh_rate=desktop_display0_mode.refresh_rate;
+			main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		}
+	}
+	else
+	{
+		//Для оконного режима будет произведена проверка на корректность значений относительно размеров экрана
+		if (window_height > desktop_display0_mode.h || window_width > desktop_display0_mode.w)
+		{
+			puts("Заданное разрешение больше размера экрана");
+			printf("Будет использовано разрешение экрана, заданное операционной системой:  %ix%i\n", desktop_display0_mode.w, desktop_display0_mode.h);
+			window_height=desktop_display0_mode.h;
+			window_width=desktop_display0_mode.w;
+		}
+	    main_window=SDL_CreateWindow("Labyrinth", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, 0);
+	}
     if (main_window == NULL)
     {
 		SDL_Log("Could not create window: %s\n", SDL_GetError());
@@ -215,6 +467,8 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 	if (time_of_day->tm_hour < 0 || time_of_day->tm_hour > 23)
 		time_of_day->tm_hour=12;
 	SDL_Event event;
+	if (fps == -1)
+		fps=refresh_rate;
 	int request_for_quit=0;
 	int count=0;
 	//Начало основного цикла - пока не произойдёт вызов закрытия программы
@@ -770,7 +1024,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									player[0].x=player[0].x-1;
 									player[0].step_start=SDL_GetTicks();
 									//Проверка на события в ячейке, в которую попал участник
-									checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -784,7 +1038,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].y=player[0].y+1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -798,7 +1052,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].x=player[0].x+1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -812,7 +1066,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].y=player[0].y-1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -848,7 +1102,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].x=player[0].x+1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -862,7 +1116,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].y=player[0].y-1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -876,7 +1130,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].x=player[0].x-1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -890,7 +1144,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 								{
 									player[0].y=player[0].y+1;
 									player[0].step_start=SDL_GetTicks();
-									checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+									checking_for_events(main_window, NULL, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 									break;
 								}
 								break;
@@ -943,7 +1197,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].y=player[0].y-1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -961,7 +1215,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].x=player[0].x-1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -979,7 +1233,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].y=player[0].y+1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -997,7 +1251,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].x=player[0].x+1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -1049,7 +1303,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].y=player[0].y+1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate+1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -1067,7 +1321,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].x=player[0].x+1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate+size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -1085,7 +1339,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].y=player[0].y-1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate-1, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -1103,7 +1357,7 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 									{
 										player[0].x=player[0].x-1;
 										player[0].step_start=SDL_GetTicks();
-										checking_for_events(main_window, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
+										checking_for_events(main_window, NULL, player_coordinate-size_labyrinth_length, player, labyrinth, size_labyrinth_length, holes, holes_array);
 										break;
 									}
 									break;
@@ -1148,7 +1402,8 @@ int sdl_main_hwsw(int *labyrinth, struct players player[], short int const rival
 			labyrinth[player[0].x*size_labyrinth_length+player[0].y]=PLAYER;
 		}
 		//Для отладки и контроля через консоль
-		show_labyrinth_in_cmd_hw(player_coordinate, player, size_labyrinth_length, size_labyrinth_width, labyrinth);
+		if (debug)
+			show_labyrinth_in_cmd_hw(player_coordinate, player, size_labyrinth_length, size_labyrinth_width, labyrinth);
 		//Если с момента начала обработки кадра прошло меньше времени,
 		//чем требуется для заданного значения FPS - обработка приостанавливается на остаток требуемого времени
 		if ((SDL_GetTicks()-ticks_begin) < (1000/FPS))
